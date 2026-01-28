@@ -10,8 +10,13 @@ import './StatisticsScreen.css';
 
 export function StatisticsScreen(): React.JSX.Element {
   const navigate = useNavigate();
-  const {stats, isLoading, refreshStats} = useStatisticsStore();
+  const {stats, isLoading, refreshStats, loadStats} = useStatisticsStore();
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Load stats on mount
+  React.useEffect(() => {
+    loadStats();
+  }, [loadStats]);
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);

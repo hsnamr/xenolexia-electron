@@ -18,8 +18,13 @@ interface DictionaryPair {
 
 export function SettingsScreen(): React.JSX.Element {
   const navigate = useNavigate();
-  const {preferences, updatePreferences, resetPreferences} = useUserStore();
+  const {preferences, updatePreferences, resetPreferences, loadPreferences} = useUserStore();
   const {books, removeBook} = useLibraryStore();
+  
+  // Load preferences on mount
+  React.useEffect(() => {
+    loadPreferences();
+  }, [loadPreferences]);
   const [showLanguagePicker, setShowLanguagePicker] = useState(false);
   const [showDictionaryManager, setShowDictionaryManager] = useState(false);
   const [showBookManager, setShowBookManager] = useState(false);

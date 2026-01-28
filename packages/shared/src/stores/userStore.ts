@@ -4,6 +4,7 @@
 
 import {create} from 'zustand';
 import type {UserPreferences, ReaderSettings} from '../types/index';
+import {StorageService} from '../services/StorageService/StorageService';
 
 const defaultReaderSettings: ReaderSettings = {
   theme: 'light',
@@ -69,11 +70,10 @@ export const useUserStore = create<UserState>((set, get) => ({
   loadPreferences: async () => {
     set({isLoading: true});
     try {
-      // TODO: Load from AsyncStorage
-      // const stored = await AsyncStorage.getItem('userPreferences');
-      // if (stored) {
-      //   set({ preferences: JSON.parse(stored) });
-      // }
+      const stored = await StorageService.loadPreferences();
+      if (stored) {
+        set({preferences: stored});
+      }
       set({isLoading: false});
     } catch (error) {
       console.error('Failed to load preferences:', error);
@@ -83,8 +83,7 @@ export const useUserStore = create<UserState>((set, get) => ({
 
   savePreferences: async () => {
     try {
-      // TODO: Save to AsyncStorage
-      // await AsyncStorage.setItem('userPreferences', JSON.stringify(get().preferences));
+      await StorageService.savePreferences(get().preferences);
     } catch (error) {
       console.error('Failed to save preferences:', error);
     }

@@ -51,6 +51,15 @@ try {
     return ipcRenderer.invoke('app:getBooksDirectory');
   },
 
+  // Directory operations
+  readDir: (dirPath) => {
+    return ipcRenderer.invoke('file:readDir', dirPath);
+  },
+
+  unlink: (filePath) => {
+    return ipcRenderer.invoke('file:unlink', filePath);
+  },
+
   // Open external URL
   openExternal: (url) => {
     shell.openExternal(url);

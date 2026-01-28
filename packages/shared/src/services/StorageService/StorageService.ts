@@ -1,15 +1,17 @@
 /**
  * Storage Service - Handles all database operations
+ * 
+ * This is a facade that delegates to repositories for actual database operations.
  */
 
 import type {Book, VocabularyItem, ReadingSession, ReadingStats, UserPreferences} from '../types/index';
-import {DatabaseSchema} from './DatabaseSchema';
-
-// TODO: Import SQLite when implementing
-// import SQLite from 'react-native-sqlite-storage';
+import {databaseService} from './DatabaseService';
+import {bookRepository} from './repositories/BookRepository';
+import {vocabularyRepository} from './repositories/VocabularyRepository';
+import {sessionRepository} from './repositories/SessionRepository';
+import {AsyncStorage} from '../../utils/AsyncStorage.electron';
 
 export class StorageService {
-  private static db: any = null;
   private static isInitialized = false;
 
   /**
@@ -19,19 +21,12 @@ export class StorageService {
     if (this.isInitialized) return;
 
     try {
-      // TODO: Open SQLite database
-      // this.db = await SQLite.openDatabase({
-      //   name: 'xenolexia.db',
-      //   location: 'default',
-      // });
-
-      // Create tables
-      // await this.db.executeSql(DatabaseSchema.createTables);
-
+      // Initialize database service (creates tables, runs migrations)
+      await databaseService.initialize();
       this.isInitialized = true;
-      console.log('Database initialized successfully');
+      console.log('StorageService initialized successfully');
     } catch (error) {
-      console.error('Failed to initialize database:', error);
+      console.error('Failed to initialize StorageService:', error);
       throw error;
     }
   }
@@ -76,32 +71,27 @@ export class StorageService {
 
   static async addVocabulary(item: VocabularyItem): Promise<void> {
     await this.initialize();
-    // TODO: Implement
-    console.log('Adding vocabulary:', item.sourceWord);
+    await vocabularyRepository.add(item);
   }
 
   static async updateVocabulary(itemId: string, updates: Partial<VocabularyItem>): Promise<void> {
     await this.initialize();
-    // TODO: Implement
-    console.log('Updating vocabulary:', itemId);
+    await vocabularyRepository.update(itemId, updates);
   }
 
   static async deleteVocabulary(itemId: string): Promise<void> {
     await this.initialize();
-    // TODO: Implement
-    console.log('Deleting vocabulary:', itemId);
+    await vocabularyRepository.delete(itemId);
   }
 
   static async getAllVocabulary(): Promise<VocabularyItem[]> {
     await this.initialize();
-    // TODO: Implement
-    return [];
+    return await vocabularyRepository.getAll();
   }
 
   static async getVocabularyDueForReview(): Promise<VocabularyItem[]> {
     await this.initialize();
-    // TODO: Implement
-    return [];
+    return await vocabularyRepository.getDueForReview();
   }
 
   // ============================================================================
@@ -110,8 +100,7 @@ export class StorageService {
 
   static async startSession(bookId: string): Promise<string> {
     await this.initialize();
-    // TODO: Implement
-    return Date.now().toString();
+    return await sessionRepository.startSession(bookId);
   }
 
   static async endSession(
@@ -119,23 +108,12 @@ export class StorageService {
     stats: {pagesRead: number; wordsRevealed: number; wordsSaved: number},
   ): Promise<void> {
     await this.initialize();
-    // TODO: Implement
-    console.log('Ending session:', sessionId);
+    await sessionRepository.endSession(sessionId, stats);
   }
 
   static async getReadingStats(): Promise<ReadingStats> {
     await this.initialize();
-    // TODO: Implement
-    return {
-      totalBooksRead: 0,
-      totalReadingTime: 0,
-      totalWordsLearned: 0,
-      currentStreak: 0,
-      longestStreak: 0,
-      averageSessionDuration: 0,
-      wordsRevealedToday: 0,
-      wordsSavedToday: 0,
-    };
+    return await sessionRepository.getStatistics();
   }
 
   // ============================================================================
@@ -160,19 +138,54 @@ export class StorageService {
 
   static async exportData(): Promise<string> {
     await this.initialize();
-    // TODO: Export all data as JSON
-    return '{}';
+    const books = await bookRepository.getAll();
+    const vocabulary = await vocabularyRepository.getAll();
+    const sessions = await sessionRepository.getRecent(1000); // Get recent sessions
+    
+    return JSON.stringify({
+      books,
+      vocabulary,
+      sessions,
+      exportedAt: new Date().toISOString(),
+      version: '1.0.0',
+    }, null, 2);
   }
 
   static async importData(jsonData: string): Promise<void> {
     await this.initialize();
-    // TODO: Import data from JSON
-    console.log('Importing data');
+    const data = JSON.parse(jsonData);
+    
+    // Import in a transaction
+    await databaseService.transaction(async () => {
+      if (data.books && Array.isArray(data.books)) {
+        for (const book of data.books) {
+          try {
+            await bookRepository.add(book);
+          } catch (error) {
+            console.warn('Failed to import book:', book.id, error);
+          }
+        }
+      }
+      
+      if (data.vocabulary && Array.isArray(data.vocabulary)) {
+        for (const word of data.vocabulary) {
+          try {
+            await vocabularyRepository.add(word);
+          } catch (error) {
+            console.warn('Failed to import vocabulary:', word.id, error);
+          }
+        }
+      }
+    });
   }
 
   static async clearAllData(): Promise<void> {
     await this.initialize();
-    // TODO: Clear all tables
-    console.log('Clearing all data');
+    // Clear all data in a transaction
+    await databaseService.transaction(async () => {
+      await vocabularyRepository.deleteAll();
+      await sessionRepository.deleteAll();
+      await bookRepository.deleteAll();
+    });
   }
 }

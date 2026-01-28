@@ -199,3 +199,146 @@
   justify-content: center;
   padding: 2rem;
 }
+
+/* Word Detail Modal Styles */
+.word-detail-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.word-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.word-detail-foreign {
+  margin: 0 0 0.5rem 0;
+  font-size: 2rem;
+  font-weight: 700;
+  color: #6366f1;
+}
+
+.word-detail-original {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.word-detail-status-badge {
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.word-detail-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.word-detail-section h4 {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.word-detail-context {
+  margin: 0;
+  font-size: 1rem;
+  color: #374151;
+  font-style: italic;
+  padding: 0.75rem;
+  background-color: #f9fafb;
+  border-radius: 0.5rem;
+  border-left: 3px solid #6366f1;
+}
+
+.word-detail-book {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.word-detail-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.word-detail-stat {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.word-detail-stat:last-child {
+  border-bottom: none;
+}
+
+.word-detail-stat .stat-label {
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.word-detail-stat .stat-value {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.word-detail-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  padding-top: 1rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.word-detail-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.word-detail-edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.word-detail-edit-field label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+}
+
+.word-detail-edit-field input,
+.word-detail-edit-field textarea {
+  padding: 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  font-family: inherit;
+}
+
+.word-detail-edit-field input:focus,
+.word-detail-edit-field textarea:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.word-detail-edit-field textarea {
+  resize: vertical;
+  min-height: 80px;
+}

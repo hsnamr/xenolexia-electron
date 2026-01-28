@@ -3,10 +3,10 @@
  */
 
 import React, {useState, useCallback, useMemo, useEffect} from 'react';
-import {useNavigate} from 'react-router-dom';
+import {useNavigate, useParams} from 'react-router-dom';
 import {useVocabularyStore} from '@xenolexia/shared/stores/vocabularyStore';
 import type {VocabularyItem} from '@xenolexia/shared/types';
-import {Card, PressableCard, SearchInput, Button} from '../components/ui';
+import {Card, PressableCard, SearchInput, Button, Modal} from '../components/ui';
 import './VocabularyScreen.css';
 
 type FilterType = 'all' | 'new' | 'learning' | 'learned';
@@ -20,14 +20,29 @@ const FILTER_OPTIONS: Array<{id: FilterType; label: string; icon: string}> = [
 
 export function VocabularyScreen(): React.JSX.Element {
   const navigate = useNavigate();
-  const {vocabulary, isLoading, refreshVocabulary, initialize} = useVocabularyStore();
+  const {wordId} = useParams<{wordId?: string}>();
+  const {vocabulary, isLoading, refreshVocabulary, initialize, getWord, updateWord, removeWord} = useVocabularyStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<FilterType>('all');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [selectedWord, setSelectedWord] = useState<VocabularyItem | null>(null);
 
   useEffect(() => {
     initialize();
   }, [initialize]);
+
+  // Handle word detail view from URL
+  useEffect(() => {
+    if (wordId) {
+      const word = getWord(wordId);
+      if (word) {
+        setSelectedWord(word);
+      } else {
+        // Word not found, navigate back
+        navigate('/vocabulary');
+      }
+    }
+  }, [wordId, getWord, navigate]);
 
   const filteredVocabulary = useMemo(() => {
     return vocabulary.filter(item => {
@@ -60,10 +75,31 @@ export function VocabularyScreen(): React.JSX.Element {
 
   const handleWordPress = useCallback(
     (item: VocabularyItem) => {
-      navigate(`/vocabulary/${item.id}`);
+      setSelectedWord(item);
     },
-    [navigate]
+    []
   );
+
+  const handleCloseWordDetail = useCallback(() => {
+    setSelectedWord(null);
+    if (wordId) {
+      navigate('/vocabulary');
+    }
+  }, [wordId, navigate]);
+
+  const handleDeleteWord = useCallback(async (itemId: string) => {
+    if (window.confirm('Delete this word from your vocabulary?')) {
+      try {
+        await removeWord(itemId);
+        if (selectedWord?.id === itemId) {
+          setSelectedWord(null);
+        }
+      } catch (error) {
+        console.error('Failed to delete word:', error);
+        alert('Failed to delete word');
+      }
+    }
+  }, [removeWord, selectedWord]);
 
   const handleStartReview = useCallback(() => {
     navigate('/vocabulary/review');
@@ -155,6 +191,24 @@ export function VocabularyScreen(): React.JSX.Element {
           ))}
         </div>
       )}
+
+      {/* Word Detail Modal */}
+      {selectedWord && (
+        <WordDetailModal
+          word={selectedWord}
+          onClose={handleCloseWordDetail}
+          onDelete={handleDeleteWord}
+          onUpdate={async (updates) => {
+            try {
+              await updateWord(selectedWord.id, updates);
+              setSelectedWord({...selectedWord, ...updates});
+            } catch (error) {
+              console.error('Failed to update word:', error);
+              alert('Failed to update word');
+            }
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -204,8 +258,128 @@ function VocabularyCard({item, onPress}: VocabularyCardProps): React.JSX.Element
       )}
 
       {!isRevealed && (
-        <p className="vocabulary-hint">Click to reveal • Right-click for details</p>
+        <p className="vocabulary-hint">Click to reveal</p>
       )}
     </PressableCard>
+  );
+}
+
+// Word Detail Modal
+interface WordDetailModalProps {
+  word: VocabularyItem;
+  onClose: () => void;
+  onDelete: (wordId: string) => void;
+  onUpdate: (updates: Partial<VocabularyItem>) => Promise<void>;
+}
+
+function WordDetailModal({word, onClose, onDelete, onUpdate}: WordDetailModalProps): React.JSX.Element {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedWord, setEditedWord] = useState(word);
+
+  const statusConfig = {
+    new: {label: 'New', color: '#6366f1'},
+    learning: {label: 'Learning', color: '#f59e0b'},
+    learned: {label: 'Mastered', color: '#10b981'},
+  }[word.status] || {label: word.status, color: '#6b7280'};
+
+  const handleSave = async () => {
+    await onUpdate(editedWord);
+    setIsEditing(false);
+  };
+
+  return (
+    <Modal isOpen={true} onClose={onClose} title="Word Details" size="medium">
+      <div className="word-detail-content">
+        {!isEditing ? (
+          <>
+            <div className="word-detail-header">
+              <div>
+                <h3 className="word-detail-foreign">{word.targetWord}</h3>
+                <p className="word-detail-original">{word.sourceWord}</p>
+              </div>
+              <span
+                className="word-detail-status-badge"
+                style={{backgroundColor: `${statusConfig.color}20`, color: statusConfig.color}}
+              >
+                {statusConfig.label}
+              </span>
+            </div>
+
+            {word.contextSentence && (
+              <div className="word-detail-section">
+                <h4>Context</h4>
+                <p className="word-detail-context">"{word.contextSentence}"</p>
+              </div>
+            )}
+
+            {word.bookTitle && (
+              <div className="word-detail-section">
+                <h4>From Book</h4>
+                <p className="word-detail-book">📖 {word.bookTitle}</p>
+              </div>
+            )}
+
+            <div className="word-detail-section">
+              <h4>Review Info</h4>
+              <div className="word-detail-stats">
+                <div className="word-detail-stat">
+                  <span className="stat-label">Reviews:</span>
+                  <span className="stat-value">{word.reviewCount}</span>
+                </div>
+                <div className="word-detail-stat">
+                  <span className="stat-label">Added:</span>
+                  <span className="stat-value">{new Date(word.addedAt).toLocaleDateString()}</span>
+                </div>
+                {word.lastReviewedAt && (
+                  <div className="word-detail-stat">
+                    <span className="stat-label">Last Reviewed:</span>
+                    <span className="stat-value">{new Date(word.lastReviewedAt).toLocaleDateString()}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="word-detail-actions">
+              <Button variant="outline" onClick={() => setIsEditing(true)}>Edit</Button>
+              <Button variant="outline" onClick={() => onDelete(word.id)}>Delete</Button>
+              <Button variant="primary" onClick={onClose}>Close</Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="word-detail-edit">
+              <div className="word-detail-edit-field">
+                <label>Foreign Word (Learning):</label>
+                <input
+                  type="text"
+                  value={editedWord.targetWord}
+                  onChange={(e) => setEditedWord({...editedWord, targetWord: e.target.value})}
+                />
+              </div>
+              <div className="word-detail-edit-field">
+                <label>Original Word:</label>
+                <input
+                  type="text"
+                  value={editedWord.sourceWord}
+                  onChange={(e) => setEditedWord({...editedWord, sourceWord: e.target.value})}
+                />
+              </div>
+              <div className="word-detail-edit-field">
+                <label>Context Sentence:</label>
+                <textarea
+                  value={editedWord.contextSentence || ''}
+                  onChange={(e) => setEditedWord({...editedWord, contextSentence: e.target.value || null})}
+                  rows={3}
+                />
+              </div>
+            </div>
+            <div className="word-detail-actions">
+              <Button variant="outline" onClick={() => {setIsEditing(false); setEditedWord(word);}}>Cancel</Button>
+              <Button variant="primary" onClick={handleSave}>Save</Button>
+            </div>
+          </>
+        )}
+      </div>
+    </Modal>
   );
 }

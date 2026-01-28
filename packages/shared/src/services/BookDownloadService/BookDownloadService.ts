@@ -8,7 +8,7 @@
 import type {Book, BookFormat} from '../types/index';
 import {FileSystemService} from '../FileSystemService';
 import { Platform } from '../../utils/platform.electron';
-import { getAppDataPath, writeFile, mkdir, fileExists } from '../../utils/FileSystem.electron';
+import { getAppDataPath, writeFile, mkdir, fileExists, readDir, unlink } from '../../utils/FileSystem.electron';
 
 import type {
   DownloadProgress,
@@ -329,15 +329,18 @@ export class BookDownloadService {
     }
 
     // Save to user's file system (for persistence)
-    await FileSystemService.saveBook(bookId, filename, combined);
+    if (USE_FILE_SYSTEM_API) {
+      await FileSystemService.saveBook(bookId, filename, combined);
+    }
 
-    // Also save to IndexedDB (RNFS) so the reader can access it
-    const bookDir = `${BOOKS_DIRECTORY}/${bookId}`;
+    // Save to Electron file system
+    const booksDir = await getBooksDirectory();
+    const bookDir = `${booksDir}/${bookId}`;
     const destPath = `${bookDir}/${filename}`;
-    await RNFS.mkdir(bookDir);
+    await mkdir(bookDir, { recursive: true });
     // Convert Uint8Array to ArrayBuffer properly (slice to avoid shared buffer issues)
     const arrayBuffer = combined.buffer.slice(combined.byteOffset, combined.byteOffset + combined.byteLength);
-    await RNFS.writeFile(destPath, arrayBuffer);
+    await writeFile(destPath, arrayBuffer);
 
     progress.status = 'completed';
     progress.percentage = 100;
@@ -356,7 +359,7 @@ export class BookDownloadService {
   }
 
   /**
-   * Download using RNFS (native or IndexedDB fallback)
+   * Download using Electron file system (fetch + writeFile)
    */
   private static async downloadWithRNFS(
     url: string,
@@ -366,40 +369,62 @@ export class BookDownloadService {
     progress: DownloadProgress,
     onProgress?: (progress: DownloadProgress) => void
   ): Promise<DownloadResult> {
-    const destPath = `${BOOKS_DIRECTORY}/${bookId}/${filename}`;
-    const bookDir = `${BOOKS_DIRECTORY}/${bookId}`;
+    const booksDir = await getBooksDirectory();
+    const bookDir = `${booksDir}/${bookId}`;
+    const destPath = `${bookDir}/${filename}`;
 
     // Ensure directory exists
-    await RNFS.mkdir(bookDir);
+    await mkdir(bookDir, { recursive: true });
 
-    // Perform the download
-    const download = RNFS.downloadFile({
-      fromUrl: url,
-      toFile: destPath,
-      progress: (res: {bytesWritten: number; contentLength: number}) => {
-        progress.bytesDownloaded = res.bytesWritten;
-        progress.totalBytes = res.contentLength;
-        progress.percentage =
-          res.contentLength > 0
-            ? Math.round((res.bytesWritten / res.contentLength) * 100)
-            : 0;
-        onProgress?.(progress);
-      },
-    });
-
-    const result = await download.promise;
-
-    if (result.statusCode >= 400) {
-      throw new Error(`Download failed with status ${result.statusCode}`);
+    // Fetch with progress tracking
+    const response = await fetchWithCorsProxy(url);
+    if (!response.ok) {
+      throw new Error(`Download failed with status ${response.status}`);
     }
 
-    // Get file stats
-    const stats = await RNFS.stat(destPath);
+    const contentLength = parseInt(response.headers.get('content-length') || '0', 10);
+    const reader = response.body?.getReader();
+
+    if (!reader) {
+      throw new Error('Unable to read response');
+    }
+
+    // Read with progress
+    const chunks: Uint8Array[] = [];
+    let bytesReceived = 0;
+
+    while (true) {
+      const {done, value} = await reader.read();
+      if (done) break;
+
+      chunks.push(value);
+      bytesReceived += value.length;
+
+      progress.bytesDownloaded = bytesReceived;
+      progress.totalBytes = contentLength || bytesReceived;
+      progress.percentage = contentLength > 0
+        ? Math.round((bytesReceived / contentLength) * 100)
+        : 0;
+      onProgress?.(progress);
+    }
+
+    // Combine chunks
+    const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+    const combined = new Uint8Array(totalLength);
+    let offset = 0;
+    for (const chunk of chunks) {
+      combined.set(chunk, offset);
+      offset += chunk.length;
+    }
+
+    // Write file
+    const arrayBuffer = combined.buffer.slice(combined.byteOffset, combined.byteOffset + combined.byteLength);
+    await writeFile(destPath, arrayBuffer);
 
     progress.status = 'completed';
     progress.percentage = 100;
-    progress.bytesDownloaded = result.bytesWritten;
-    progress.totalBytes = result.bytesWritten;
+    progress.bytesDownloaded = totalLength;
+    progress.totalBytes = totalLength;
     onProgress?.(progress);
 
     return {
@@ -409,7 +434,7 @@ export class BookDownloadService {
       metadata: {
         title: 'Downloaded Book',
         author: 'Unknown',
-        fileSize: stats.size,
+        fileSize: totalLength,
       },
     };
   }
@@ -538,23 +563,11 @@ export class BookDownloadService {
         offset += chunk.length;
       }
 
-      // Prompt user for save location
-      const savedName = await RNFS.saveFileWithPicker(
-        combined.buffer,
-        `${searchResult.title.replace(/[^a-zA-Z0-9\s]/g, '')}.${searchResult.format}`,
-        this.getFileTypeOptions(searchResult.format)
-      );
-
-      if (!savedName) {
-        return {
-          success: false,
-          error: 'Download cancelled',
-        };
-      }
-
-      // Also save to internal storage for library access
-      const internalPath = `${BOOKS_DIRECTORY}/${searchResult.id}.${searchResult.format}`;
-      await RNFS.writeFile(internalPath, combined.buffer);
+      // For Electron, we'll save to internal storage
+      // User can export later if needed
+      const booksDir = await getBooksDirectory();
+      const internalPath = `${booksDir}/${searchResult.id}.${searchResult.format}`;
+      await writeFile(internalPath, combined.buffer);
 
       progress.status = 'completed';
       progress.percentage = 100;
@@ -980,9 +993,8 @@ export class BookDownloadService {
    */
   static async deleteLocalBook(filePath: string): Promise<boolean> {
     try {
-      // TODO: Implement using RNFS
-      // await RNFS.unlink(filePath);
-      console.log('Deleting book:', filePath);
+      await unlink(filePath);
+      console.log('Deleted book:', filePath);
       return true;
     } catch (error) {
       console.error('Failed to delete book:', error);

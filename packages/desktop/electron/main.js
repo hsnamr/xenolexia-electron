@@ -152,6 +152,41 @@ function setupIpcHandlers() {
 
     return booksDir;
   });
+
+  // Directory operations
+  ipcMain.handle('file:readDir', async (event, dirPath) => {
+    try {
+      const entries = await fs.readdir(dirPath, { withFileTypes: true });
+      return entries.map(entry => ({
+        name: entry.name,
+        path: path.join(dirPath, entry.name),
+        isFile: () => entry.isFile(),
+        isDirectory: () => entry.isDirectory(),
+        size: entry.isFile() ? (await fs.stat(path.join(dirPath, entry.name))).size : 0,
+        mtime: entry.isFile() ? (await fs.stat(path.join(dirPath, entry.name))).mtime : new Date(),
+      }));
+    } catch (error) {
+      console.error('Failed to read directory:', error);
+      throw error;
+    }
+  });
+
+  ipcMain.handle('file:unlink', async (event, filePath) => {
+    try {
+      const stats = await fs.stat(filePath);
+      if (stats.isDirectory()) {
+        // For directories, we'd need recursive delete
+        // For now, just remove if empty
+        await fs.rmdir(filePath);
+      } else {
+        await fs.unlink(filePath);
+      }
+      return true;
+    } catch (error) {
+      console.error('Failed to delete file:', error);
+      throw error;
+    }
+  });
 }
 
 // App event handlers

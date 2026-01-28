@@ -9,3 +9,5 @@ export type {InputProps, InputVariant, InputSize} from './Input';
 
 export {Text} from './Text';
 export type {TextProps} from './Text';
+
+export {Modal} from './Modal';

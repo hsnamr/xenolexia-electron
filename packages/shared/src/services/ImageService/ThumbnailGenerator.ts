@@ -8,8 +8,6 @@
  * This implementation provides a stubbed version that works with the cache system.
  */
 
-import RNFS from 'react-native-fs';
-
 import type {
   ImageDimensions,
   ResizeOptions,
@@ -18,6 +16,7 @@ import type {
 } from './types';
 import {THUMBNAIL_SIZES} from './types';
 import {ImageCache} from './ImageCache';
+import { getAppDataPath, mkdir, fileExists, readFileAsBase64, writeFile } from '../../utils/FileSystem.electron';
 
 // ============================================================================
 // Constants
@@ -37,7 +36,14 @@ export class ThumbnailGenerator {
 
   private constructor() {
     this.cache = ImageCache.getInstance();
-    this.thumbnailsDir = `${RNFS.DocumentDirectoryPath}/${THUMBNAILS_DIR}`;
+    // Will be set during initialization
+    this.thumbnailsDir = '';
+  }
+
+  private async ensureInitialized(): Promise<void> {
+    if (!this.initialized) {
+      await this.initialize();
+    }
   }
 
   /**
@@ -59,9 +65,13 @@ export class ThumbnailGenerator {
     try {
       await this.cache.initialize();
 
-      const exists = await RNFS.exists(this.thumbnailsDir);
+      // Set thumbnails directory path
+      const appDataPath = await getAppDataPath();
+      this.thumbnailsDir = `${appDataPath}/${THUMBNAILS_DIR}`;
+
+      const exists = await fileExists(this.thumbnailsDir);
       if (!exists) {
-        await RNFS.mkdir(this.thumbnailsDir);
+        await mkdir(this.thumbnailsDir, { recursive: true });
       }
 
       this.initialized = true;
@@ -174,7 +184,14 @@ export class ThumbnailGenerator {
     // For now, just copy the original
     // TODO: Add actual image resizing with react-native-image-resizer
 
-    await RNFS.copyFile(sourcePath, tempPath);
+    // Copy source to temp (read and write)
+    const sourceBuffer = await readFileAsBase64(sourcePath);
+    const binaryString = atob(sourceBuffer);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    await writeFile(tempPath, bytes.buffer);
 
     return tempPath;
   }
@@ -187,7 +204,7 @@ export class ThumbnailGenerator {
   async getImageDimensions(imagePath: string): Promise<ImageDimensions | null> {
     try {
       // Check if file exists
-      const exists = await RNFS.exists(imagePath);
+      const exists = await fileExists(imagePath);
       if (!exists) {
         return null;
       }

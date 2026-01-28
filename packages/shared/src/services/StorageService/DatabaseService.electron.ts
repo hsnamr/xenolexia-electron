@@ -1,15 +1,13 @@
 /**
- * Database Service - SQLite database connection and management
+ * Database Service - Electron version using better-sqlite3
  *
- * Uses better-sqlite3 for Electron (synchronous API).
+ * Uses better-sqlite3 for SQLite operations (synchronous API).
  * Provides connection management, migrations, and query helpers.
- *
- * This file exports the Electron version. For React Native, use a different implementation.
  */
 
-// Export Electron version
-export * from './DatabaseService.electron';
-export { databaseService } from './DatabaseService.electron';
+import Database from 'better-sqlite3';
+import type { RunResult } from 'better-sqlite3';
+import { getAppDataPath } from '../../utils/FileSystem.electron';
 
 // ============================================================================
 // Types
@@ -33,17 +31,16 @@ export interface MigrationDefinition {
 // ============================================================================
 
 const DATABASE_NAME = 'xenolexia.db';
-const DATABASE_VERSION = 1;
-const DATABASE_LOCATION = 'default';
 
 // ============================================================================
 // Database Service Class
 // ============================================================================
 
 class DatabaseService {
-  private db: SQLiteDatabase | null = null;
+  private db: Database.Database | null = null;
   private isInitialized: boolean = false;
   private initPromise: Promise<void> | null = null;
+  private dbPath: string | null = null;
 
   /**
    * Initialize the database connection
@@ -73,16 +70,23 @@ class DatabaseService {
    */
   private async doInitialize(): Promise<void> {
     try {
-      // Open database
-      this.db = await SQLite.openDatabase({
-        name: DATABASE_NAME,
-        location: DATABASE_LOCATION,
-      });
+      // Get app data path for Electron
+      const appDataPath = await getAppDataPath();
+      this.dbPath = `${appDataPath}/${DATABASE_NAME}`;
 
-      console.log('[Database] Connected to SQLite database');
+      // Open database (better-sqlite3 is synchronous)
+      this.db = new Database(this.dbPath);
+
+      // Enable WAL mode for better concurrency
+      this.db.pragma('journal_mode = WAL');
+
+      // Enable foreign keys
+      this.db.pragma('foreign_keys = ON');
+
+      console.log('[Database] Connected to SQLite database:', this.dbPath);
 
       // Run migrations
-      await this.runMigrations();
+      this.runMigrations();
 
       this.isInitialized = true;
       console.log('[Database] Initialization complete');
@@ -97,10 +101,20 @@ class DatabaseService {
   /**
    * Get database instance (initializes if needed)
    */
-  async getDatabase(): Promise<SQLiteDatabase> {
+  async getDatabase(): Promise<Database.Database> {
     await this.initialize();
     if (!this.db) {
       throw new Error('Database not initialized');
+    }
+    return this.db;
+  }
+
+  /**
+   * Get database instance synchronously (for better-sqlite3)
+   */
+  private getDatabaseSync(): Database.Database {
+    if (!this.db) {
+      throw new Error('Database not initialized. Call initialize() first.');
     }
     return this.db;
   }
@@ -117,7 +131,7 @@ class DatabaseService {
    */
   async close(): Promise<void> {
     if (this.db) {
-      await this.db.close();
+      this.db.close();
       this.db = null;
       this.isInitialized = false;
       console.log('[Database] Connection closed');
@@ -135,11 +149,30 @@ class DatabaseService {
     sql: string,
     params: (string | number | null)[] = [],
   ): Promise<QueryResult<T>> {
-    const db = await this.getDatabase();
+    const db = this.getDatabaseSync();
 
     try {
-      const [result] = await db.executeSql(sql, params);
-      return this.parseResult<T>(result);
+      // Check if it's a SELECT query
+      const trimmedSql = sql.trim().toUpperCase();
+      if (trimmedSql.startsWith('SELECT') || trimmedSql.startsWith('PRAGMA')) {
+        const stmt = db.prepare(sql);
+        const rows = stmt.all(...params) as T[];
+
+        return {
+          rows,
+          rowsAffected: 0,
+        };
+      } else {
+        // INSERT, UPDATE, DELETE, etc.
+        const stmt = db.prepare(sql);
+        const result = stmt.run(...params) as RunResult;
+
+        return {
+          rows: [],
+          rowsAffected: result.changes,
+          insertId: result.lastInsertRowid ? Number(result.lastInsertRowid) : undefined,
+        };
+      }
     } catch (error) {
       console.error('[Database] Query failed:', sql, error);
       throw error;
@@ -148,28 +181,67 @@ class DatabaseService {
 
   /**
    * Execute multiple SQL statements in a transaction
+   * Note: better-sqlite3 transactions are synchronous, so we execute all statements synchronously
    */
   async transaction<T>(
     callback: (tx: Transaction) => Promise<T>,
   ): Promise<T> {
-    const db = await this.getDatabase();
+    const db = this.getDatabaseSync();
 
-    return new Promise((resolve, reject) => {
-      db.transaction(
-        async (tx) => {
-          try {
-            const result = await callback(tx);
-            resolve(result);
-          } catch (error) {
-            reject(error);
+    // For better-sqlite3, we need to collect all operations first
+    // Since transactions are synchronous, we'll execute them all at once
+    const operations: Array<{sql: string; params: any[]}> = [];
+    let result: T | null = null;
+    let error: Error | null = null;
+
+    // Create a transaction wrapper that collects operations
+    const tx: Transaction = {
+      executeSql: (sql: string, params: any[], success?: (tx: any, result: any) => void, err?: (tx: any, e: any) => boolean) => {
+        try {
+          const queryResult = this.executeSync(sql, params);
+          operations.push({ sql, params });
+          if (success) {
+            success(tx, queryResult);
           }
-        },
-        (error) => {
-          console.error('[Database] Transaction failed:', error);
-          reject(error);
-        },
-      );
-    });
+          return queryResult;
+        } catch (e) {
+          if (err) {
+            const handled = err(tx, e);
+            if (!handled) {
+              error = e instanceof Error ? e : new Error(String(e));
+            }
+          } else {
+            error = e instanceof Error ? e : new Error(String(e));
+          }
+          throw e;
+        }
+      },
+    };
+
+    // Execute callback to collect operations
+    try {
+      result = await callback(tx);
+    } catch (e) {
+      error = e instanceof Error ? e : new Error(String(e));
+    }
+
+    // If there was an error, reject
+    if (error) {
+      throw error;
+    }
+
+    // Execute all operations in a single transaction
+    if (operations.length > 0) {
+      const transaction = db.transaction(() => {
+        for (const op of operations) {
+          const stmt = db.prepare(op.sql);
+          stmt.run(...op.params);
+        }
+      });
+      transaction();
+    }
+
+    return result as T;
   }
 
   /**
@@ -178,21 +250,16 @@ class DatabaseService {
   async executeBatch(
     statements: Array<{sql: string; params?: (string | number | null)[]}>,
   ): Promise<void> {
-    await this.transaction(async (tx) => {
+    const db = this.getDatabaseSync();
+
+    const transaction = db.transaction(() => {
       for (const statement of statements) {
-        await new Promise<void>((resolve, reject) => {
-          tx.executeSql(
-            statement.sql,
-            statement.params || [],
-            () => resolve(),
-            (_, error) => {
-              reject(error);
-              return false;
-            },
-          );
-        });
+        const stmt = db.prepare(statement.sql);
+        stmt.run(...(statement.params || []));
       }
     });
+
+    transaction();
   }
 
   /**
@@ -202,8 +269,10 @@ class DatabaseService {
     sql: string,
     params: (string | number | null)[] = [],
   ): Promise<T | null> {
-    const result = await this.execute<T>(sql, params);
-    return result.rows.length > 0 ? result.rows[0] : null;
+    const db = this.getDatabaseSync();
+    const stmt = db.prepare(sql);
+    const row = stmt.get(...params) as T | undefined;
+    return row || null;
   }
 
   /**
@@ -213,8 +282,9 @@ class DatabaseService {
     sql: string,
     params: (string | number | null)[] = [],
   ): Promise<T[]> {
-    const result = await this.execute<T>(sql, params);
-    return result.rows;
+    const db = this.getDatabaseSync();
+    const stmt = db.prepare(sql);
+    return stmt.all(...params) as T[];
   }
 
   /**
@@ -275,9 +345,11 @@ class DatabaseService {
   /**
    * Run database migrations
    */
-  private async runMigrations(): Promise<void> {
+  private runMigrations(): void {
+    const db = this.getDatabaseSync();
+
     // Create migrations table if it doesn't exist
-    await this.execute(`
+    db.exec(`
       CREATE TABLE IF NOT EXISTS _migrations (
         version INTEGER PRIMARY KEY,
         description TEXT,
@@ -286,9 +358,8 @@ class DatabaseService {
     `);
 
     // Get current version
-    const current = await this.getOne<{version: number}>(
-      'SELECT MAX(version) as version FROM _migrations',
-    );
+    const stmt = db.prepare('SELECT MAX(version) as version FROM _migrations');
+    const current = stmt.get() as {version: number} | undefined;
     const currentVersion = current?.version ?? 0;
 
     console.log(`[Database] Current version: ${currentVersion}`);
@@ -303,35 +374,32 @@ class DatabaseService {
       return;
     }
 
-    // Run pending migrations
-    for (const migration of pendingMigrations) {
-      console.log(
-        `[Database] Running migration ${migration.version}: ${migration.description}`,
-      );
-
-      try {
-        // Split and execute statements
-        const statements = migration.up
-          .split(';')
-          .map((s) => s.trim())
-          .filter((s) => s.length > 0);
-
-        for (const statement of statements) {
-          await this.execute(statement);
-        }
-
-        // Record migration
-        await this.execute(
-          'INSERT INTO _migrations (version, description, applied_at) VALUES (?, ?, ?)',
-          [migration.version, migration.description, Date.now()],
+    // Run pending migrations in a transaction
+    const transaction = db.transaction(() => {
+      for (const migration of pendingMigrations) {
+        console.log(
+          `[Database] Running migration ${migration.version}: ${migration.description}`,
         );
 
-        console.log(`[Database] Migration ${migration.version} complete`);
-      } catch (error) {
-        console.error(`[Database] Migration ${migration.version} failed:`, error);
-        throw error;
+        try {
+          // Execute migration SQL
+          db.exec(migration.up);
+
+          // Record migration
+          const insertStmt = db.prepare(
+            'INSERT INTO _migrations (version, description, applied_at) VALUES (?, ?, ?)',
+          );
+          insertStmt.run(migration.version, migration.description, Date.now());
+
+          console.log(`[Database] Migration ${migration.version} complete`);
+        } catch (error) {
+          console.error(`[Database] Migration ${migration.version} failed:`, error);
+          throw error;
+        }
       }
-    }
+    });
+
+    transaction();
 
     console.log('[Database] All migrations complete');
   }
@@ -355,20 +423,33 @@ class DatabaseService {
   // ============================================================================
 
   /**
-   * Parse SQLite result set
+   * Execute query synchronously (internal use)
    */
-  private parseResult<T>(result: ResultSet): QueryResult<T> {
-    const rows: T[] = [];
+  private executeSync<T = Record<string, unknown>>(
+    sql: string,
+    params: (string | number | null)[] = [],
+  ): QueryResult<T> {
+    const db = this.getDatabaseSync();
 
-    for (let i = 0; i < result.rows.length; i++) {
-      rows.push(result.rows.item(i) as T);
+    const trimmedSql = sql.trim().toUpperCase();
+    if (trimmedSql.startsWith('SELECT') || trimmedSql.startsWith('PRAGMA')) {
+      const stmt = db.prepare(sql);
+      const rows = stmt.all(...params) as T[];
+
+      return {
+        rows,
+        rowsAffected: 0,
+      };
+    } else {
+      const stmt = db.prepare(sql);
+      const result = stmt.run(...params) as RunResult;
+
+      return {
+        rows: [],
+        rowsAffected: result.changes,
+        insertId: result.lastInsertRowid ? Number(result.lastInsertRowid) : undefined,
+      };
     }
-
-    return {
-      rows,
-      rowsAffected: result.rowsAffected,
-      insertId: result.insertId,
-    };
   }
 
   /**
@@ -393,9 +474,23 @@ class DatabaseService {
    * Vacuum database (optimize storage)
    */
   async vacuum(): Promise<void> {
-    await this.execute('VACUUM');
+    const db = this.getDatabaseSync();
+    db.exec('VACUUM');
     console.log('[Database] Vacuum complete');
   }
+}
+
+// ============================================================================
+// Transaction Interface (for compatibility)
+// ============================================================================
+
+interface Transaction {
+  executeSql: (
+    sql: string,
+    params: any[],
+    success?: (tx: Transaction, result: any) => void,
+    error?: (tx: Transaction, err: any) => boolean,
+  ) => any;
 }
 
 // ============================================================================

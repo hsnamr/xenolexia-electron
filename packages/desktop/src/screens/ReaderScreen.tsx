@@ -6,7 +6,9 @@ import React, {useState, useCallback, useEffect} from 'react';
 import {useParams, useNavigate} from 'react-router-dom';
 import {useLibraryStore} from '@xenolexia/shared/stores/libraryStore';
 import {useReaderStore} from '@xenolexia/shared/stores/readerStore';
-import type {ForeignWordData} from '@xenolexia/shared/types';
+import {useVocabularyStore} from '@xenolexia/shared/stores/vocabularyStore';
+import type {ForeignWordData, VocabularyItem} from '@xenolexia/shared/types';
+import {v4 as uuidv4} from 'uuid';
 import {ReaderContent} from './ReaderContent';
 import './ReaderScreen.css';
 
@@ -158,14 +160,48 @@ export function ReaderScreen(): React.JSX.Element {
       {selectedWord && (
         <TranslationPopup
           word={selectedWord}
+          book={book}
+          isSaved={isWordSaved(selectedWord.originalWord, selectedWord.wordEntry.targetLanguage)}
           onDismiss={dismissPopup}
           onSave={async () => {
-            // TODO: Implement save word to vocabulary
-            console.log('Save word:', selectedWord);
-            dismissPopup();
+            try {
+              // Check if word is already saved
+              if (isWordSaved(selectedWord.originalWord, selectedWord.wordEntry.targetLanguage)) {
+                alert('This word is already in your vocabulary!');
+                dismissPopup();
+                return;
+              }
+
+              // Use currentBook from readerStore if available, otherwise fallback to book from library
+              const bookForContext = currentBook || book;
+
+              // Create VocabularyItem from ForeignWordData
+              const vocabularyItem: VocabularyItem = {
+                id: uuidv4(),
+                sourceWord: selectedWord.originalWord,
+                targetWord: selectedWord.foreignWord,
+                sourceLanguage: selectedWord.wordEntry.sourceLanguage,
+                targetLanguage: selectedWord.wordEntry.targetLanguage,
+                contextSentence: null, // Could extract from chapter content in future
+                bookId: bookForContext?.id ?? null,
+                bookTitle: bookForContext?.title ?? null,
+                addedAt: new Date(),
+                lastReviewedAt: null,
+                reviewCount: 0,
+                easeFactor: 2.5, // SM-2 default
+                interval: 0,
+                status: 'new',
+              };
+
+              await addWord(vocabularyItem);
+              dismissPopup();
+            } catch (error) {
+              console.error('Failed to save word:', error);
+              alert('Failed to save word to vocabulary');
+            }
           }}
           onKnewIt={() => {
-            // TODO: Mark word as known
+            // For now, just dismiss - could mark word as known in future
             console.log('Mark word as known:', selectedWord);
             dismissPopup();
           }}
@@ -197,7 +233,13 @@ function TranslationPopup({word, onDismiss, onSave, onKnewIt}: TranslationPopupP
           )}
         </div>
         <div className="translation-popup-actions">
-          <button onClick={onSave}>Save to Vocabulary</button>
+          <button 
+            onClick={onSave}
+            disabled={isSaved}
+            style={{opacity: isSaved ? 0.5 : 1}}
+          >
+            {isSaved ? '✓ Already Saved' : 'Save to Vocabulary'}
+          </button>
           {onKnewIt && <button onClick={onKnewIt}>I Knew This</button>}
         </div>
       </div>

@@ -4,6 +4,8 @@
 
 import {create} from 'zustand';
 import type {ReadingStats, ReadingSession} from '../types/index';
+import {StorageService} from '../services/StorageService/StorageService';
+import {sessionRepository} from '../services/StorageService/repositories/SessionRepository';
 
 const defaultStats: ReadingStats = {
   totalBooksRead: 0,
@@ -60,21 +62,38 @@ export const useStatisticsStore = create<StatisticsState>((set, get) => ({
     reviewsToday: 0,
   },
 
-  startSession: (bookId: string) => {
-    const session: ReadingSession = {
-      id: Date.now().toString(),
-      bookId,
-      startedAt: new Date(),
-      endedAt: null,
-      pagesRead: 0,
-      wordsRevealed: 0,
-      wordsSaved: 0,
-      duration: 0,
-    };
-    set({currentSession: session});
+  startSession: async (bookId: string) => {
+    try {
+      const sessionId = await StorageService.startSession(bookId);
+      const session: ReadingSession = {
+        id: sessionId,
+        bookId,
+        startedAt: new Date(),
+        endedAt: null,
+        pagesRead: 0,
+        wordsRevealed: 0,
+        wordsSaved: 0,
+        duration: 0,
+      };
+      set({currentSession: session});
+    } catch (error) {
+      console.error('Failed to start session:', error);
+      // Fallback to local session
+      const session: ReadingSession = {
+        id: Date.now().toString(),
+        bookId,
+        startedAt: new Date(),
+        endedAt: null,
+        pagesRead: 0,
+        wordsRevealed: 0,
+        wordsSaved: 0,
+        duration: 0,
+      };
+      set({currentSession: session});
+    }
   },
 
-  endSession: () => {
+  endSession: async () => {
     const {currentSession, stats, sessions} = get();
     if (!currentSession) return;
 
@@ -89,7 +108,18 @@ export const useStatisticsStore = create<StatisticsState>((set, get) => ({
       duration,
     };
 
-    // Update stats
+    // Persist to database first
+    try {
+      await StorageService.endSession(completedSession.id, {
+        pagesRead: completedSession.pagesRead,
+        wordsRevealed: completedSession.wordsRevealed,
+        wordsSaved: completedSession.wordsSaved,
+      });
+    } catch (error) {
+      console.error('Failed to persist session:', error);
+    }
+
+    // Update local stats
     const newTotalTime = stats.totalReadingTime + duration;
     const newSessionCount = sessions.length + 1;
     const newAverageSession = Math.floor(newTotalTime / newSessionCount);
@@ -103,8 +133,6 @@ export const useStatisticsStore = create<StatisticsState>((set, get) => ({
         averageSessionDuration: newAverageSession,
       },
     });
-
-    // TODO: Persist to database
   },
 
   recordWordRevealed: () => {
@@ -141,7 +169,8 @@ export const useStatisticsStore = create<StatisticsState>((set, get) => ({
         reviewsToday: state.reviewStats.reviewsToday + data.cardsReviewed,
       },
     }));
-    // TODO: Persist to database
+    // Review stats are stored in memory for now
+    // Could be persisted to preferences if needed
   },
 
   updateStats: (updates: Partial<ReadingStats>) => {
@@ -153,11 +182,10 @@ export const useStatisticsStore = create<StatisticsState>((set, get) => ({
   loadStats: async () => {
     set({isLoading: true});
     try {
-      // TODO: Load from database
-      // const stats = await StorageService.getStats();
-      // const sessions = await StorageService.getRecentSessions();
-      // set({ stats, sessions, isLoading: false });
-      set({isLoading: false});
+      const stats = await StorageService.getReadingStats();
+      // Get recent sessions (last 50)
+      const recentSessions = await sessionRepository.getRecent(50);
+      set({stats, sessions: recentSessions, isLoading: false});
     } catch (error) {
       console.error('Failed to load stats:', error);
       set({isLoading: false});

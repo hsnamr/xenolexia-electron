@@ -6,9 +6,8 @@
  * 2. Disk cache for persistence
  */
 
-import RNFS from 'react-native-fs';
-
 import type {CacheEntry, CacheOptions, CacheStats} from './types';
+import { getAppDataPath, mkdir, fileExists, writeFile, readFileAsText, unlink, readFileAsBase64 } from '../../utils/FileSystem.electron';
 
 // ============================================================================
 // Constants
@@ -102,7 +101,8 @@ export class ImageCache {
       defaultTTL: options.defaultTTL ?? DEFAULT_TTL,
       directory: options.directory ?? CACHE_DIR_NAME,
     };
-    this.cacheDir = `${RNFS.CachesDirectoryPath}/${this.options.directory}`;
+    // Will be set during initialization
+    this.cacheDir = '';
   }
 
   /**
@@ -122,10 +122,14 @@ export class ImageCache {
     if (this.initialized) return;
 
     try {
+      // Set cache directory path
+      const appDataPath = await getAppDataPath();
+      this.cacheDir = `${appDataPath}/${this.options.directory}`;
+      
       // Create cache directory if it doesn't exist
-      const exists = await RNFS.exists(this.cacheDir);
+      const exists = await fileExists(this.cacheDir);
       if (!exists) {
-        await RNFS.mkdir(this.cacheDir);
+        await mkdir(this.cacheDir, { recursive: true });
       }
 
       // Load manifest
@@ -172,7 +176,7 @@ export class ImageCache {
     }
 
     // Check if file exists
-    const exists = await RNFS.exists(entry.path);
+    const exists = await fileExists(entry.path);
     if (!exists) {
       await this.delete(key);
       this.stats.misses++;
@@ -207,16 +211,26 @@ export class ImageCache {
     const extension = this.getExtension(sourcePath);
     const cachePath = `${this.cacheDir}/${key}${extension}`;
 
-    // Copy or move file to cache
+    // Copy file to cache (Electron doesn't have moveFile, so we copy then delete source if move=true)
+    const sourceBuffer = await readFileAsBase64(sourcePath);
+    const binaryString = atob(sourceBuffer);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    await writeFile(cachePath, bytes.buffer);
+    
+    // If move was requested, delete source
     if (move) {
-      await RNFS.moveFile(sourcePath, cachePath);
-    } else {
-      await RNFS.copyFile(sourcePath, cachePath);
+      try {
+        await unlink(sourcePath);
+      } catch (error) {
+        console.warn('Failed to delete source file after move:', error);
+      }
     }
 
-    // Get file size
-    const stat = await RNFS.stat(cachePath);
-    const size = parseInt(String(stat.size), 10);
+    // Get file size (from buffer length)
+    const size = bytes.length;
 
     // Create entry
     const entry: CacheEntry = {
@@ -264,11 +278,15 @@ export class ImageCache {
     const cachePath = `${this.cacheDir}/${key}${extension}`;
 
     // Write base64 to file
-    await RNFS.writeFile(cachePath, base64Data, 'base64');
+    const binaryString = atob(base64Data);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    await writeFile(cachePath, bytes.buffer, 'base64');
 
-    // Get file size
-    const stat = await RNFS.stat(cachePath);
-    const size = parseInt(String(stat.size), 10);
+    // Get file size (from buffer length)
+    const size = bytes.length;
 
     // Create entry
     const entry: CacheEntry = {
@@ -331,9 +349,9 @@ export class ImageCache {
 
     // Remove file
     try {
-      const exists = await RNFS.exists(entry.path);
+      const exists = await fileExists(entry.path);
       if (exists) {
-        await RNFS.unlink(entry.path);
+        await unlink(entry.path);
       }
     } catch (error) {
       console.warn(`Failed to delete cache file: ${entry.path}`, error);
@@ -436,12 +454,12 @@ export class ImageCache {
     const manifestPath = `${this.cacheDir}/${MANIFEST_FILE}`;
 
     try {
-      const exists = await RNFS.exists(manifestPath);
+      const exists = await fileExists(manifestPath);
       if (!exists) {
         return;
       }
 
-      const content = await RNFS.readFile(manifestPath, 'utf8');
+      const content = await readFileAsText(manifestPath);
       const data = JSON.parse(content);
 
       if (Array.isArray(data)) {
@@ -463,7 +481,7 @@ export class ImageCache {
 
     try {
       const data = Array.from(this.manifest.values());
-      await RNFS.writeFile(manifestPath, JSON.stringify(data), 'utf8');
+      await writeFile(manifestPath, JSON.stringify(data), 'utf8');
     } catch (error) {
       console.warn('Failed to save cache manifest:', error);
     }

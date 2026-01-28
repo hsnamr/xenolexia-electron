@@ -7,11 +7,11 @@
  * - JSON - Full data export with metadata
  */
 
-import { Platform, Share } from 'react-native';
-import RNFS from 'react-native-fs';
 import { format } from 'date-fns';
 import type { VocabularyItem, Language } from '../types';
 import { getLanguageInfo } from '../types';
+import { Platform } from '../../utils/platform.electron';
+import { getAppDataPath, writeFile, mkdir } from '../../utils/FileSystem.electron';
 
 // ============================================================================
 // Types
@@ -111,10 +111,11 @@ class ExportService {
       // Generate filename
       const timestamp = format(new Date(), 'yyyy-MM-dd_HHmm');
       const fileName = `xenolexia_vocabulary_${timestamp}.${fileExtension}`;
-      const filePath = `${this.exportDir}/${fileName}`;
+      const exportDir = await this.getExportDir();
+      const filePath = `${exportDir}/${fileName}`;
 
       // Write file
-      await RNFS.writeFile(filePath, content, 'utf8');
+      await writeFile(filePath, content, 'utf8');
 
       return {
         success: true,
@@ -133,7 +134,7 @@ class ExportService {
   }
 
   /**
-   * Export and share via system share sheet
+   * Export and share via system share sheet (Electron: opens file location)
    */
   async exportAndShare(
     vocabulary: VocabularyItem[],
@@ -143,11 +144,27 @@ class ExportService {
 
     if (result.success && result.filePath) {
       try {
-        await Share.share({
-          url: Platform.OS === 'ios' ? result.filePath : `file://${result.filePath}`,
-          title: result.fileName,
-          message: `Xenolexia Vocabulary Export - ${result.itemCount} words`,
-        });
+        // In Electron, we can open the file location or the file itself
+        if (typeof window !== 'undefined' && (window as any).electronAPI) {
+          // Open file location in file manager
+          const { shell } = require('electron');
+          if (shell && shell.showItemInFolder) {
+            shell.showItemInFolder(result.filePath);
+          }
+        } else {
+          // Fallback: try to use Share API if available (for mobile)
+          try {
+            const { Share } = require('react-native');
+            await Share.share({
+              url: `file://${result.filePath}`,
+              title: result.fileName,
+              message: `Xenolexia Vocabulary Export - ${result.itemCount} words`,
+            });
+          } catch (error) {
+            // Share not available, just return success
+            console.log('Share not available, file saved to:', result.filePath);
+          }
+        }
       } catch (error) {
         // User cancelled share - not an error
         console.log('Share cancelled');

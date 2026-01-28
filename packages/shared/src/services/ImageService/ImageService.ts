@@ -8,8 +8,6 @@
  * - Placeholder generation
  */
 
-import RNFS from 'react-native-fs';
-
 import type {
   ImageSource,
   ImageLoadResult,
@@ -19,6 +17,7 @@ import type {
 } from './types';
 import {ImageCache} from './ImageCache';
 import {ThumbnailGenerator} from './ThumbnailGenerator';
+import { getAppDataPath, mkdir, fileExists, writeFile, unlink, readFileAsBase64 } from '../../utils/FileSystem.electron';
 
 // ============================================================================
 // Constants
@@ -58,7 +57,8 @@ export class ImageService {
   private constructor() {
     this.cache = ImageCache.getInstance();
     this.thumbnailGenerator = ThumbnailGenerator.getInstance();
-    this.coversDir = `${RNFS.DocumentDirectoryPath}/${COVERS_DIR}`;
+    // Will be set during initialization
+    this.coversDir = '';
   }
 
   /**
@@ -108,7 +108,7 @@ export class ImageService {
 
       if (source.uri) {
         // Local file
-        const exists = await RNFS.exists(source.uri);
+        const exists = await fileExists(source.uri);
         if (exists) {
           uri = source.uri;
         }
@@ -179,7 +179,7 @@ export class ImageService {
     await this.ensureInitialized();
 
     const coverPath = `${this.coversDir}/${bookId}/cover.jpg`;
-    const exists = await RNFS.exists(coverPath);
+    const exists = await fileExists(coverPath);
     return exists ? coverPath : null;
   }
 
@@ -243,13 +243,19 @@ export class ImageService {
     const coverPath = `${bookCoverDir}/cover.jpg`;
 
     // Create directory
-    const exists = await RNFS.exists(bookCoverDir);
+    const exists = await fileExists(bookCoverDir);
     if (!exists) {
-      await RNFS.mkdir(bookCoverDir);
+      await mkdir(bookCoverDir, { recursive: true });
     }
 
-    // Copy cover
-    await RNFS.copyFile(sourcePath, coverPath);
+    // Copy cover (read source and write to destination)
+    const sourceBuffer = await readFileAsBase64(sourcePath);
+    const binaryString = atob(sourceBuffer);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    await writeFile(coverPath, bytes.buffer);
 
     // Pre-generate thumbnails
     try {
@@ -276,13 +282,18 @@ export class ImageService {
     const coverPath = `${bookCoverDir}/cover${extension}`;
 
     // Create directory
-    const exists = await RNFS.exists(bookCoverDir);
+    const exists = await fileExists(bookCoverDir);
     if (!exists) {
-      await RNFS.mkdir(bookCoverDir);
+      await mkdir(bookCoverDir, { recursive: true });
     }
 
-    // Write cover
-    await RNFS.writeFile(coverPath, base64Data, 'base64');
+    // Write cover (convert base64 to buffer)
+    const binaryString = atob(base64Data);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    await writeFile(coverPath, bytes.buffer, 'base64');
 
     // Pre-generate thumbnails
     try {
@@ -311,9 +322,14 @@ export class ImageService {
     }
 
     // Delete cover directory
-    const exists = await RNFS.exists(bookCoverDir);
+    const exists = await fileExists(bookCoverDir);
     if (exists) {
-      await RNFS.unlink(bookCoverDir);
+      // Note: unlink may not work for directories, may need recursive delete
+      try {
+        await unlink(bookCoverDir);
+      } catch (error) {
+        console.warn('Could not delete cover directory:', error);
+      }
     }
   }
 
