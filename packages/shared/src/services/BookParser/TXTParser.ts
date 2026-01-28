@@ -1,10 +1,11 @@
 /**
  * TXT Parser - Simple text file parser
  * 
- * Uses react-native-fs for file reading (works on both mobile and Electron via mocks)
+ * Uses Electron file system for file reading
  */
 
 import type {IBookParser, ParsedBook, Chapter, BookMetadata, TableOfContentsItem} from '../types';
+import { readFileAsText } from '../../utils/FileSystem.electron';
 
 export class TXTParser implements IBookParser {
   private filePath: string | null = null;
@@ -16,24 +17,8 @@ export class TXTParser implements IBookParser {
   async parse(filePath: string): Promise<ParsedBook> {
     this.filePath = filePath;
     
-    // Read file content
-    // Note: react-native-fs is platform-specific, but shared package
-    // will be used by packages that have it available
-    // For Electron/web, use File System Access API or fetch
-    let content: string;
-    try {
-      // Try react-native-fs first (mobile)
-      const RNFS = require('react-native-fs');
-      content = await RNFS.readFile(filePath, 'utf8');
-    } catch (error) {
-      // Fallback: try fetch for web/Electron (if filePath is a URL or blob)
-      if (filePath.startsWith('http://') || filePath.startsWith('https://') || filePath.startsWith('blob:')) {
-        const response = await fetch(filePath);
-        content = await response.text();
-      } else {
-        throw new Error(`Cannot read file: ${filePath}. react-native-fs not available and filePath is not a URL.`);
-      }
-    }
+    // Read file content using Electron file system
+    const content = await readFileAsText(filePath);
     this.content = content;
     
     // Extract metadata from filename

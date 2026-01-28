@@ -14,8 +14,8 @@
  *   images/               - Image resources
  */
 
-import RNFS from 'react-native-fs';
 import JSZip from 'jszip';
+import { readFileAsBase64 } from '../../utils/FileSystem.electron';
 
 // ============================================================================
 // Types
@@ -75,7 +75,7 @@ export class EPUBExtractor {
   async load(filePath: string): Promise<void> {
     try {
       // Read the file as base64
-      const base64Data = await RNFS.readFile(filePath, 'base64');
+      const base64Data = await readFileAsBase64(filePath);
 
       // Load with JSZip
       this.zip = new JSZip();

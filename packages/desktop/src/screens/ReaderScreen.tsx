@@ -17,6 +17,7 @@ export function ReaderScreen(): React.JSX.Element {
   const {
     currentBook,
     currentChapter,
+    chapters,
     processedHtml,
     settings,
     isLoading,
@@ -141,11 +142,13 @@ export function ReaderScreen(): React.JSX.Element {
             ← Previous
           </button>
           <div className="reader-progress">
-            {Math.round((currentChapter?.index || 0) / (book.totalChapters || 1) * 100)}%
+            {chapters.length > 0 
+              ? Math.round(((currentChapter?.index || 0) + 1) / chapters.length * 100)
+              : 0}%
           </div>
           <button
             onClick={goToNextChapter}
-            disabled={!currentChapter || currentChapter.index >= (book.totalChapters - 1)}
+            disabled={!currentChapter || currentChapter.index >= (chapters.length - 1)}
           >
             Next →
           </button>

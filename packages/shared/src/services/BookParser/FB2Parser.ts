@@ -6,6 +6,7 @@
  */
 
 import type {IBookParser, ParsedBook, Chapter, BookMetadata, TableOfContentsItem} from '../types';
+import { readFileAsText } from '../../utils/FileSystem.electron';
 
 // ============================================================================
 // FB2 Parser Implementation
@@ -25,19 +26,8 @@ export class FB2Parser implements IBookParser {
   async parse(filePath: string): Promise<ParsedBook> {
     this.filePath = filePath;
     
-    // Read file content
-    let content: string;
-    try {
-      const RNFS = require('react-native-fs');
-      content = await RNFS.readFile(filePath, 'utf8');
-    } catch (error) {
-      if (filePath.startsWith('http://') || filePath.startsWith('https://') || filePath.startsWith('blob:')) {
-        const response = await fetch(filePath);
-        content = await response.text();
-      } else {
-        throw new Error(`Cannot read FB2 file: ${filePath}`);
-      }
-    }
+    // Read file content using Electron file system
+    const content = await readFileAsText(filePath);
     
     this.xmlContent = content;
     

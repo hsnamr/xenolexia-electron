@@ -5,11 +5,10 @@
  * Supports: Project Gutenberg, Standard Ebooks, Open Library, and direct URLs.
  */
 
-import {Platform} from 'react-native';
-import RNFS from 'react-native-fs';
-
 import type {Book, BookFormat} from '../types/index';
 import {FileSystemService} from '../FileSystemService';
+import { Platform } from '../../utils/platform.electron';
+import { getAppDataPath, writeFile, mkdir, fileExists } from '../../utils/FileSystem.electron';
 
 import type {
   DownloadProgress,
@@ -19,8 +18,17 @@ import type {
   LocalEbookFile,
 } from './types';
 
-// Directory for storing downloaded books (native platforms)
-const BOOKS_DIRECTORY = `${RNFS.DocumentDirectoryPath}/.xenolexia/books`;
+// Directory for storing downloaded books (Electron)
+let BOOKS_DIRECTORY: string | null = null;
+
+async function getBooksDirectory(): Promise<string> {
+  if (!BOOKS_DIRECTORY) {
+    const appDataPath = await getAppDataPath();
+    BOOKS_DIRECTORY = `${appDataPath}/books`;
+    await mkdir(BOOKS_DIRECTORY, { recursive: true });
+  }
+  return BOOKS_DIRECTORY;
+}
 
 // Whether to use File System Access API on web
 const USE_FILE_SYSTEM_API = Platform.OS === 'web' && FileSystemService.isSupported();
@@ -168,10 +176,11 @@ export class BookDownloadService {
         await FileSystemService.initialize();
       }
 
-      // Create books directory if it doesn't exist (native/fallback)
-      const exists = await RNFS.exists(BOOKS_DIRECTORY);
+      // Create books directory if it doesn't exist (Electron)
+      const booksDir = await getBooksDirectory();
+      const exists = await fileExists(booksDir);
       if (!exists) {
-        await RNFS.mkdir(BOOKS_DIRECTORY);
+        await mkdir(booksDir, { recursive: true });
       }
       this.isInitialized = true;
       console.log('BookDownloadService initialized');

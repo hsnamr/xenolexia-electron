@@ -3,7 +3,7 @@
  */
 
 import type { ReaderSettings, ReaderTheme } from '../types';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AsyncStorage } from '../utils/AsyncStorage.electron';
 
 // ============================================================================
 // Types

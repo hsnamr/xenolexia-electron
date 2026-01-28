@@ -13,8 +13,8 @@
  * - Offline mode with cached translations
  */
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Language } from '../types';
+import { AsyncStorage } from '../../utils/AsyncStorage.electron';
 
 // ============================================================================
 // Types

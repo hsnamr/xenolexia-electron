@@ -2,9 +2,9 @@
  * Chapter Content Service - Extracts and processes chapter HTML for rendering
  */
 
-import RNFS from 'react-native-fs';
 import JSZip from 'jszip';
 import type { Chapter, ReaderSettings } from '../types';
+import { readFileAsBase64 } from '../../utils/FileSystem.electron';
 
 // ============================================================================
 // Types
@@ -64,7 +64,7 @@ export class ChapterContentService {
    */
   async loadEpub(filePath: string): Promise<void> {
     try {
-      const content = await RNFS.readFile(filePath, 'base64');
+      const content = await readFileAsBase64(filePath);
       this.zip = await JSZip.loadAsync(content, { base64: true });
       
       // Determine base path from container.xml
@@ -91,8 +91,18 @@ export class ChapterContentService {
   ): Promise<ProcessedChapterContent> {
     let html = chapter.content;
 
-    // Process embedded images to base64
-    html = await this.processImages(html);
+    // Process embedded images to base64 (continue even if it fails)
+    try {
+      html = await this.processImages(html);
+    } catch (error) {
+      console.warn('Failed to process images, continuing with original HTML:', error);
+      // Continue with original HTML if image processing fails
+    }
+
+    // Ensure we have content
+    if (!html || html.trim().length === 0) {
+      html = '<p>No content available for this chapter.</p>';
+    }
 
     // Generate base CSS
     const baseStyles = this.generateBaseStyles(settings);

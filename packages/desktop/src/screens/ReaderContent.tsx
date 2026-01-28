@@ -176,13 +176,38 @@ export function ReaderContent({
   // Inject scripts and styles into the HTML
   useEffect(() => {
     const container = containerRef.current;
-    if (!container) return;
+    if (!container) {
+      console.warn('ReaderContent: container ref is null');
+      return;
+    }
+
+    if (!html || html.trim().length === 0) {
+      console.warn('ReaderContent: HTML is empty');
+      container.innerHTML = '<div style="padding: 2em; text-align: center;"><p>No content available</p></div>';
+      return;
+    }
+
+    console.log('ReaderContent: Setting HTML, length:', html.length);
 
     // Extract body content from full HTML document
     const bodyContent = extractBodyContent(html);
+    console.log('ReaderContent: Body content length:', bodyContent.length);
     
-    // Set innerHTML with body content
-    container.innerHTML = bodyContent;
+    // If the HTML is a full document, we should render it in an iframe or extract body
+    // For now, let's check if it's a full document
+    if (html.includes('<!DOCTYPE') || html.includes('<html')) {
+      // It's a full document - extract body or render in iframe
+      const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+      if (bodyMatch) {
+        container.innerHTML = bodyMatch[1];
+      } else {
+        // Fallback: try to extract content between body tags or just use the HTML
+        container.innerHTML = bodyContent;
+      }
+    } else {
+      // It's just body content
+      container.innerHTML = bodyContent;
+    }
 
     // Inject foreign word styles if not already present
     if (!document.getElementById('xenolexia-foreign-word-styles')) {
@@ -202,6 +227,8 @@ export function ReaderContent({
     const newScript = document.createElement('script');
     newScript.textContent = scriptElement.textContent;
     scriptElement.parentNode?.replaceChild(newScript, scriptElement);
+
+    console.log('ReaderContent: HTML rendered successfully');
   }, [html, extractBodyContent]);
 
   return <div ref={containerRef} className="reader-html-content" />;

@@ -6,6 +6,7 @@
 
 import {initMobiFile, type Mobi, type MobiSpine, type MobiMetadata, type MobiToc} from '@lingo-reader/mobi-parser';
 import type {IBookParser, ParsedBook, Chapter, BookMetadata, TableOfContentsItem} from '../types';
+import { readFileAsBase64 } from '../../utils/FileSystem.electron';
 
 // ============================================================================
 // MOBI Parser Implementation
@@ -28,8 +29,7 @@ export class MOBIParser implements IBookParser {
       // Read file as Uint8Array
       let fileData: Uint8Array;
       try {
-        const RNFS = require('react-native-fs');
-        const base64Data = await RNFS.readFile(filePath, 'base64');
+        const base64Data = await readFileAsBase64(filePath);
         // Convert base64 to Uint8Array
         const binaryString = atob(base64Data);
         fileData = new Uint8Array(binaryString.length);
@@ -42,7 +42,7 @@ export class MOBIParser implements IBookParser {
           const arrayBuffer = await response.arrayBuffer();
           fileData = new Uint8Array(arrayBuffer);
         } else {
-          throw new Error(`Cannot read MOBI file: ${filePath}`);
+          throw new Error(`Cannot read MOBI file: ${filePath}. ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
       }
       

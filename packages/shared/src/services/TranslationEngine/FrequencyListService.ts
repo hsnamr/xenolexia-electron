@@ -12,8 +12,8 @@
  * - Advanced (C1-C2): Words 2001-5000+
  */
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Language, ProficiencyLevel } from '../types';
+import { AsyncStorage } from '../../utils/AsyncStorage.electron';
 
 // ============================================================================
 // Types

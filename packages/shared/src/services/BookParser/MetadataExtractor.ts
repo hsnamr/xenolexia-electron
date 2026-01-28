@@ -5,9 +5,8 @@
  * Combines EPUBExtractor with TOC parsing to provide a unified API.
  */
 
-import RNFS from 'react-native-fs';
-
 import type {BookMetadata, TableOfContentsItem} from '../types';
+import { writeFile, mkdir } from '../../utils/FileSystem.electron';
 
 import {EPUBExtractor} from './EPUBExtractor';
 import type {EPUBPackage, EPUBManifestItem} from './EPUBExtractor';
@@ -118,10 +117,16 @@ export class MetadataExtractor {
       const outputPath = `${outputDir}/${fileName}`;
 
       // Ensure output directory exists
-      await RNFS.mkdir(outputDir);
+      await mkdir(outputDir, { recursive: true });
 
       // Write the image file
-      await RNFS.writeFile(outputPath, base64Data, 'base64');
+      // Convert base64 to ArrayBuffer for writeFile
+      const binaryString = atob(base64Data);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      await writeFile(outputPath, bytes.buffer, 'base64');
 
       return outputPath;
     } catch (error) {

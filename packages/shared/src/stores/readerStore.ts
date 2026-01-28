@@ -145,8 +145,13 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
       // Load the book in content service for image extraction (only for EPUB)
       if (format === 'epub') {
         console.log('Loading EPUB in content service...');
-        await get().contentService.loadEpub(book.filePath);
-        console.log('Content service loaded');
+        try {
+          await get().contentService.loadEpub(book.filePath);
+          console.log('Content service loaded');
+        } catch (error) {
+          console.warn('Failed to load EPUB in content service (images may not work):', error);
+          // Continue anyway - chapters can still be displayed without image processing
+        }
       }
 
       // Update state with parsed data
@@ -184,14 +189,22 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
   goToChapter: async (index: number) => {
     const { chapters, settings, contentService } = get();
 
+    console.log('goToChapter called:', { index, totalChapters: chapters.length });
+
     if (index < 0 || index >= chapters.length) {
+      console.warn('Invalid chapter index:', index, 'Total chapters:', chapters.length);
       return;
     }
 
-    set({ isLoadingChapter: true, scrollPosition: 0, chapterProgress: 0 });
+    set({ isLoadingChapter: true, scrollPosition: 0, chapterProgress: 0, error: null });
 
     try {
       const chapter = chapters[index];
+      console.log('Loading chapter:', { index, title: chapter.title, wordCount: chapter.wordCount });
+
+      if (!chapter || !chapter.content) {
+        throw new Error(`Chapter ${index} has no content`);
+      }
 
       // Generate HTML with styles
       const processedContent = await contentService.getChapterHtml(chapter, {
@@ -204,6 +217,8 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
         foreignWordColor: '#6366f1',
       });
 
+      console.log('Chapter HTML generated, length:', processedContent.html.length);
+
       // Calculate overall progress
       const overallProgress = ((index + 1) / chapters.length) * 100;
 
@@ -214,12 +229,20 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
         foreignWords: [], // Will be populated by translation engine
         isLoadingChapter: false,
         overallProgress,
+        error: null,
       });
+
+      console.log('Chapter loaded successfully');
     } catch (error) {
       console.error('Failed to load chapter:', error);
       set({
         error: error instanceof Error ? error.message : 'Failed to load chapter',
         isLoadingChapter: false,
+        processedHtml: `<div style="padding: 2em; text-align: center;">
+          <h2>Error Loading Chapter</h2>
+          <p>${error instanceof Error ? error.message : 'Unknown error'}</p>
+          <p>Chapter index: ${index} of ${chapters.length}</p>
+        </div>`,
       });
     }
   },

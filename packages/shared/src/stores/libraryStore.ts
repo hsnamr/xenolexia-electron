@@ -4,14 +4,14 @@
 
 import {create} from 'zustand';
 import {persist, createJSONStorage} from 'zustand/middleware';
-import {Platform} from 'react-native';
 
 import type {Book} from '../types';
 import {bookRepository} from '../services/StorageService/repositories';
 import type {BookFilter, BookSort} from '../services/StorageService/repositories';
+import { Platform } from '../utils/platform.electron';
 
-// Check if we're on web
-const IS_WEB = Platform.OS === 'web';
+// Check if we're on web (Electron is not web)
+const IS_WEB = false; // Electron is desktop, not web
 
 // Custom storage for web that handles Date serialization
 const webStorage = {
