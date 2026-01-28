@@ -187,7 +187,7 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
    * Navigate to a specific chapter
    */
   goToChapter: async (index: number) => {
-    const { chapters, settings, contentService } = get();
+    const { currentBook, chapters, settings, contentService } = get();
 
     console.log('goToChapter called:', { index, totalChapters: chapters.length });
 
@@ -206,18 +206,32 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
         throw new Error(`Chapter ${index} has no content`);
       }
 
-      // Generate HTML with styles
-      const processedContent = await contentService.getChapterHtml(chapter, {
-        fontFamily: settings.fontFamily,
-        fontSize: settings.fontSize,
-        lineHeight: settings.lineHeight,
-        textAlign: settings.textAlign,
-        marginHorizontal: settings.marginHorizontal,
-        theme: settings.theme,
-        foreignWordColor: '#6366f1',
-      });
+      // Translation options from current book (enables word replacement)
+      const translationOptions = currentBook
+        ? {
+            sourceLanguage: currentBook.languagePair.sourceLanguage,
+            targetLanguage: currentBook.languagePair.targetLanguage,
+            proficiencyLevel: currentBook.proficiencyLevel,
+            density: currentBook.wordDensity,
+          }
+        : undefined;
 
-      console.log('Chapter HTML generated, length:', processedContent.html.length);
+      // Generate HTML with styles and optional word replacement
+      const processedContent = await contentService.getChapterHtml(
+        chapter,
+        {
+          fontFamily: settings.fontFamily,
+          fontSize: settings.fontSize,
+          lineHeight: settings.lineHeight,
+          textAlign: settings.textAlign,
+          marginHorizontal: settings.marginHorizontal,
+          theme: settings.theme,
+          foreignWordColor: '#6366f1',
+        },
+        translationOptions
+      );
+
+      console.log('Chapter HTML generated, length:', processedContent.html.length, 'foreignWords:', processedContent.foreignWords?.length ?? 0);
 
       // Calculate overall progress
       const overallProgress = ((index + 1) / chapters.length) * 100;
@@ -226,7 +240,7 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
         currentChapterIndex: index,
         currentChapter: chapter,
         processedHtml: processedContent.html,
-        foreignWords: [], // Will be populated by translation engine
+        foreignWords: processedContent.foreignWords ?? [],
         isLoadingChapter: false,
         overallProgress,
         error: null,

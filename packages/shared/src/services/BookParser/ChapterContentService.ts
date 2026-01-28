@@ -3,8 +3,10 @@
  */
 
 import JSZip from 'jszip';
-import type { Chapter, ReaderSettings } from '../types';
+import type { Chapter, ReaderSettings, ForeignWordData } from '../types';
+import type { TranslationOptions } from '../TranslationEngine/types';
 import { readFileAsBase64 } from '../../utils/FileSystem.electron';
+import { createTranslationEngine } from '../TranslationEngine/TranslationEngine';
 
 // ============================================================================
 // Types
@@ -24,6 +26,8 @@ export interface ProcessedChapterContent {
   html: string;
   baseStyles: string;
   scripts: string;
+  /** Foreign words replaced in content (when translation options were used) */
+  foreignWords?: ForeignWordData[];
 }
 
 // ============================================================================
@@ -83,13 +87,17 @@ export class ChapterContentService {
   }
 
   /**
-   * Get chapter HTML content with embedded styles and images
+   * Get chapter HTML content with embedded styles and images.
+   * When translationOptions is provided, eligible words are replaced with target-language
+   * equivalents based on proficiency and density; foreignWords are returned for popup/hover.
    */
   async getChapterHtml(
     chapter: Chapter,
-    settings: ChapterStyles
+    settings: ChapterStyles,
+    translationOptions?: TranslationOptions
   ): Promise<ProcessedChapterContent> {
     let html = chapter.content;
+    let foreignWords: ForeignWordData[] = [];
 
     // Process embedded images to base64 (continue even if it fails)
     try {
@@ -102,6 +110,19 @@ export class ChapterContentService {
     // Ensure we have content
     if (!html || html.trim().length === 0) {
       html = '<p>No content available for this chapter.</p>';
+    }
+
+    // Word replacement: run TranslationEngine when options are provided
+    if (translationOptions) {
+      try {
+        const engine = createTranslationEngine(translationOptions);
+        const processed = await engine.processContent(html);
+        html = processed.content;
+        foreignWords = processed.foreignWords ?? [];
+      } catch (error) {
+        console.warn('Word replacement failed, using original content:', error);
+        // Keep html and foreignWords empty on failure
+      }
     }
 
     // Generate base CSS
@@ -117,6 +138,7 @@ export class ChapterContentService {
       html: wrappedHtml,
       baseStyles,
       scripts,
+      foreignWords,
     };
   }
 
