@@ -1,0 +1,144 @@
+.input-container {
+  margin-bottom: 1rem;
+}
+
+.input-container-full-width {
+  width: 100%;
+}
+
+.input-label {
+  display: block;
+  margin-bottom: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #6b7280;
+}
+
+.input-label-error {
+  color: #ef4444;
+}
+
+.input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input {
+  width: 100%;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  font-family: inherit;
+  transition: all 0.2s;
+}
+
+.input:focus {
+  outline: none;
+}
+
+.input-focused {
+  border-color: #6366f1;
+}
+
+.input-error {
+  border-color: #ef4444;
+}
+
+/* Variants */
+.input-outlined {
+  background-color: #ffffff;
+}
+
+.input-filled {
+  background-color: #f9fafb;
+  border-color: transparent;
+  border-bottom-color: #e5e7eb;
+  border-radius: 0.5rem 0.5rem 0 0;
+}
+
+.input-filled.input-focused {
+  border-bottom-color: #6366f1;
+  border-bottom-width: 2px;
+}
+
+.input-underlined {
+  background-color: transparent;
+  border: none;
+  border-bottom: 2px solid #e5e7eb;
+  border-radius: 0;
+}
+
+.input-underlined.input-focused {
+  border-bottom-color: #6366f1;
+}
+
+/* Sizes */
+.input-sm {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  min-height: 2.25rem;
+}
+
+.input-md {
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  min-height: 3rem;
+}
+
+.input-lg {
+  padding: 1rem 1.25rem;
+  font-size: 1.125rem;
+  min-height: 3.5rem;
+}
+
+.input-with-left {
+  padding-left: 2.5rem;
+}
+
+.input-with-right {
+  padding-right: 2.5rem;
+}
+
+.input-left-element,
+.input-right-element {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  color: #9ca3af;
+}
+
+.input-left-element {
+  left: 0.75rem;
+}
+
+.input-right-element {
+  right: 0.75rem;
+}
+
+.input-clear-button {
+  position: absolute;
+  right: 0.75rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #9ca3af;
+  padding: 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.input-clear-button:hover {
+  color: #6b7280;
+}
+
+.input-helper {
+  margin-top: 0.25rem;
+  font-size: 0.875rem;
+  color: #6b7280;
+  padding: 0 0.25rem;
+}
+
+.input-helper-error {
+  color: #ef4444;
+}

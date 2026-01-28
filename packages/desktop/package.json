@@ -1,0 +1,130 @@
+{
+  "name": "xenolexia-desktop",
+  "version": "0.1.0",
+  "description": "Xenolexia Electron Desktop App",
+  "main": "electron/main.js",
+  "homepage": "./",
+  "private": true,
+  "scripts": {
+    "build:assets": "ELECTRON=true webpack --mode production",
+    "electron": "electron .",
+    "electron:dev": "ELECTRON=true webpack --mode development && NODE_ENV=development electron .",
+    "electron:test": "npm run build:assets && electron .",
+    "electron:build": "npm run build:assets && electron-builder",
+    "electron:build:linux": "npm run build:assets && electron-builder --linux",
+    "electron:build:mac": "npm run build:assets && electron-builder --mac",
+    "electron:build:win": "npm run build:assets && electron-builder --win",
+    "build:linux:deb": "npm run build:assets && electron-builder --linux --config.linux.target=deb",
+    "build:linux:rpm": "npm run build:assets && electron-builder --linux --config.linux.target=rpm",
+    "build:linux:arch": "npm run build:assets && electron-builder --linux --config.linux.target=pacman",
+    "build:linux:tarball": "npm run build:assets && electron-builder --linux --config.linux.target=tar.gz"
+  },
+  "dependencies": {
+    "@xenolexia/shared": "*",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "react-router-dom": "^6.26.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.24.7",
+    "@babel/plugin-transform-runtime": "^7.28.5",
+    "@babel/preset-env": "^7.24.7",
+    "@babel/preset-react": "^7.28.5",
+    "@babel/preset-typescript": "^7.24.7",
+    "@types/react": "^18.2.79",
+    "@types/react-dom": "^18.2.0",
+    "babel-loader": "^10.0.0",
+    "css-loader": "^7.1.3",
+    "electron": "^40.0.0",
+    "electron-builder": "^26.4.0",
+    "html-webpack-plugin": "^5.6.6",
+    "style-loader": "^4.0.0",
+    "typescript": "5.4.5",
+    "webpack": "^5.104.1",
+    "webpack-cli": "^6.0.1"
+  },
+  "build": {
+    "appId": "com.xenolexia.app",
+    "productName": "Xenolexia",
+    "electronVersion": "40.0.0",
+    "directories": {
+      "output": "../../release"
+    },
+    "artifactName": "${productName}-${version}-${arch}.${ext}",
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "dist",
+        "to": "dist",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "publish": null,
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb",
+        "rpm",
+        "pacman",
+        "tar.gz"
+      ],
+      "category": "Education",
+      "icon": "assets/icon.png",
+      "synopsis": "Learn languages through the stories you love",
+      "description": "Xenolexia is a cross-platform e-book reader that helps you learn languages by reading books with integrated translation and vocabulary building features.",
+      "maintainer": "Xenolexia Team",
+      "vendor": "Xenolexia",
+      "executableName": "xenolexia"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dir",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "category": "public.app-category.education",
+      "icon": "assets/icon.png"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64",
+            "ia32"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  }
+}

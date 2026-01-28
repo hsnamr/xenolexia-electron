@@ -1,0 +1,98 @@
+{
+  "name": "Xenolexia",
+  "displayName": "Xenolexia",
+  "version": "1.0.0",
+  "build": "1",
+  "description": "Learn languages naturally through reading",
+  "author": "Xenolexia Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/xenolexia/xenolexia-react"
+  },
+  "ios": {
+    "bundleIdentifier": "com.xenolexia.app",
+    "buildNumber": "1",
+    "supportsTablet": true,
+    "infoPlist": {
+      "NSCameraUsageDescription": "Xenolexia needs camera access to scan book covers",
+      "NSPhotoLibraryUsageDescription": "Xenolexia needs photo library access to import book covers",
+      "NSDocumentsFolderUsageDescription": "Xenolexia needs access to documents to import ebooks",
+      "UIFileSharingEnabled": true,
+      "LSSupportsOpeningDocumentsInPlace": true,
+      "UISupportsDocumentBrowser": true,
+      "CFBundleDocumentTypes": [
+        {
+          "CFBundleTypeName": "EPUB",
+          "CFBundleTypeRole": "Viewer",
+          "LSHandlerRank": "Alternate",
+          "LSItemContentTypes": ["org.idpf.epub-container"]
+        }
+      ],
+      "UTImportedTypeDeclarations": [
+        {
+          "UTTypeIdentifier": "org.idpf.epub-container",
+          "UTTypeDescription": "EPUB Publication",
+          "UTTypeConformsTo": ["public.data", "public.composite-content"],
+          "UTTypeTagSpecification": {
+            "public.filename-extension": ["epub"],
+            "public.mime-type": ["application/epub+zip"]
+          }
+        }
+      ]
+    },
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0ea5e9"
+    },
+    "icon": "./assets/icon.png"
+  },
+  "android": {
+    "package": "com.xenolexia.app",
+    "versionCode": 1,
+    "adaptiveIcon": {
+      "foregroundImage": "./assets/adaptive-icon-foreground.png",
+      "backgroundColor": "#0ea5e9"
+    },
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0ea5e9"
+    },
+    "permissions": [
+      "android.permission.READ_EXTERNAL_STORAGE",
+      "android.permission.WRITE_EXTERNAL_STORAGE",
+      "android.permission.INTERNET",
+      "android.permission.ACCESS_NETWORK_STATE"
+    ],
+    "intentFilters": [
+      {
+        "action": "VIEW",
+        "data": [
+          {
+            "scheme": "file",
+            "mimeType": "application/epub+zip"
+          },
+          {
+            "scheme": "content",
+            "mimeType": "application/epub+zip"
+          }
+        ],
+        "category": ["BROWSABLE", "DEFAULT"]
+      }
+    ]
+  },
+  "plugins": [
+    "react-native-document-picker"
+  ],
+  "keywords": [
+    "language-learning",
+    "reading",
+    "ebook",
+    "epub",
+    "vocabulary",
+    "flashcards",
+    "spaced-repetition"
+  ]
+}

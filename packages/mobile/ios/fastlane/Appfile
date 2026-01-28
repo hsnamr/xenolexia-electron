@@ -1,0 +1,30 @@
+# Xenolexia iOS App Configuration
+# https://docs.fastlane.tools/actions/appfile/
+
+# App Identifier
+app_identifier("com.xenolexia.app")
+
+# Apple ID (email)
+# apple_id("your@email.com")
+
+# Team ID (found in Apple Developer Portal)
+# team_id("XXXXXXXXXX")
+
+# iTunes Connect Team ID (if different from team_id)
+# itc_team_id("XXXXXXXXXX")
+
+# For CI/CD, use environment variables or App Store Connect API
+# ENV variables used:
+# - APPLE_ID
+# - TEAM_ID
+# - ITC_TEAM_ID
+# - APP_STORE_CONNECT_API_KEY_ID
+# - APP_STORE_CONNECT_API_ISSUER_ID
+# - APP_STORE_CONNECT_API_KEY_CONTENT
+
+# App Store Connect API Key (recommended for CI)
+# api_key_path("path/to/api_key.json")
+
+for_platform :ios do
+  # Platform-specific configuration
+end

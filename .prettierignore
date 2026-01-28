@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+android/
+ios/
+.expo/
+build/
+dist/
+
+# Package manager
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Coverage
+coverage/
+
+# Generated
+*.generated.*
+
+# IDE
+.idea/
+.vscode/
+
+# Metro
+.metro-health-check*

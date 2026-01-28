@@ -1,0 +1,36 @@
+# Xenolexia Screenshot Configuration
+# https://docs.fastlane.tools/actions/screengrab/
+
+# App package name
+app_package_name("com.xenolexia.app")
+
+# Locales to capture screenshots for
+locales(['en-US', 'es-ES', 'fr-FR', 'de-DE', 'ja-JP'])
+
+# Clear previous screenshots
+clear_previous_screenshots(true)
+
+# Output directory
+output_directory("./fastlane/metadata/android/")
+
+# Device types
+# device_type("phone")
+
+# Specific devices (requires adb connection)
+# specific_device("emulator-5554")
+
+# Test APK path
+# tests_apk_path("app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk")
+
+# App APK path
+# app_apk_path("app/build/outputs/apk/debug/app-debug.apk")
+
+# Test instrumentation runner
+# use_tests_in_packages(["com.xenolexia.app.screenshots"])
+# test_instrumentation_runner("androidx.test.runner.AndroidJUnitRunner")
+
+# Exit on test failure
+exit_on_test_failure(false)
+
+# Skip open summary
+skip_open_summary(true)

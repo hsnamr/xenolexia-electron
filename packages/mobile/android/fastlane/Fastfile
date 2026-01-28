@@ -1,0 +1,197 @@
+# Xenolexia Android Fastlane Configuration
+# https://docs.fastlane.tools
+
+default_platform(:android)
+
+platform :android do
+  # ==================
+  # Before All
+  # ==================
+  before_all do
+    # Setup if needed
+  end
+
+  # ==================
+  # Testing
+  # ==================
+  desc "Run unit tests"
+  lane :test do
+    gradle(
+      task: "test",
+      build_type: "Debug"
+    )
+  end
+
+  desc "Run instrumented tests"
+  lane :instrumented_test do
+    gradle(
+      task: "connectedAndroidTest",
+      build_type: "Debug"
+    )
+  end
+
+  # ==================
+  # Building
+  # ==================
+  desc "Build debug APK"
+  lane :build_debug do
+    gradle(
+      task: "assemble",
+      build_type: "Debug"
+    )
+  end
+
+  desc "Build release APK"
+  lane :build_release do
+    gradle(
+      task: "assemble",
+      build_type: "Release"
+    )
+  end
+
+  desc "Build release bundle (AAB)"
+  lane :build_bundle do
+    # Increment version code
+    android_set_version_code(
+      version_code: ENV['BUILD_NUMBER'] || (google_play_track_version_codes.first || 0) + 1
+    )
+    
+    gradle(
+      task: "bundle",
+      build_type: "Release"
+    )
+  end
+
+  # ==================
+  # Deployment
+  # ==================
+  desc "Deploy to Internal Testing track"
+  lane :deploy_internal do
+    build_bundle unless lane_context[SharedValues::GRADLE_AAB_OUTPUT_PATH]
+    
+    upload_to_play_store(
+      track: "internal",
+      release_status: "completed",
+      skip_upload_apk: true,
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+  end
+
+  desc "Deploy to Alpha (Closed Testing) track"
+  lane :deploy_alpha do
+    build_bundle unless lane_context[SharedValues::GRADLE_AAB_OUTPUT_PATH]
+    
+    upload_to_play_store(
+      track: "alpha",
+      release_status: "completed",
+      skip_upload_apk: true
+    )
+  end
+
+  desc "Deploy to Beta (Open Testing) track"
+  lane :deploy_beta do
+    build_bundle unless lane_context[SharedValues::GRADLE_AAB_OUTPUT_PATH]
+    
+    upload_to_play_store(
+      track: "beta",
+      release_status: "completed",
+      skip_upload_apk: true
+    )
+  end
+
+  desc "Deploy to Production"
+  lane :deploy_production do
+    build_bundle unless lane_context[SharedValues::GRADLE_AAB_OUTPUT_PATH]
+    
+    upload_to_play_store(
+      track: "production",
+      release_status: "completed",
+      skip_upload_apk: true,
+      rollout: "0.1" # 10% rollout initially
+    )
+  end
+
+  desc "Promote from Internal to Beta"
+  lane :promote_to_beta do
+    upload_to_play_store(
+      track: "internal",
+      track_promote_to: "beta",
+      skip_upload_apk: true,
+      skip_upload_aab: true
+    )
+  end
+
+  desc "Promote from Beta to Production"
+  lane :promote_to_production do
+    upload_to_play_store(
+      track: "beta",
+      track_promote_to: "production",
+      skip_upload_apk: true,
+      skip_upload_aab: true,
+      rollout: "0.1"
+    )
+  end
+
+  # ==================
+  # Screenshots
+  # ==================
+  desc "Capture screenshots using screengrab"
+  lane :screenshots do
+    gradle(
+      task: "assemble",
+      build_type: "Debug"
+    )
+    gradle(
+      task: "assemble",
+      build_type: "AndroidTest"
+    )
+    screengrab
+  end
+
+  # ==================
+  # Utility
+  # ==================
+  desc "Bump version name"
+  lane :bump_version do |options|
+    type = options[:type] || "patch"
+    
+    # Get current version
+    current_version = android_get_version_name
+    parts = current_version.split('.')
+    
+    case type
+    when "major"
+      parts[0] = (parts[0].to_i + 1).to_s
+      parts[1] = "0"
+      parts[2] = "0"
+    when "minor"
+      parts[1] = (parts[1].to_i + 1).to_s
+      parts[2] = "0"
+    when "patch"
+      parts[2] = (parts[2].to_i + 1).to_s
+    end
+    
+    new_version = parts.join('.')
+    android_set_version_name(version_name: new_version)
+    
+    UI.success("Version bumped to #{new_version}")
+  end
+
+  desc "Clean build artifacts"
+  lane :clean do
+    gradle(task: "clean")
+  end
+
+  # ==================
+  # After All
+  # ==================
+  after_all do |lane|
+    # Notify on success if needed
+  end
+
+  error do |lane, exception|
+    UI.error("Lane #{lane} failed: #{exception.message}")
+  end
+end
