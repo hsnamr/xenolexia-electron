@@ -53,6 +53,36 @@ export function ReaderScreen(): React.JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookId, book]);
 
+  // Keyboard shortcuts: next/prev chapter, toggle controls
+  useEffect(() => {
+    if (!book || selectedWord || showReaderSettings) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
+      switch (e.key) {
+        case 'ArrowRight':
+        case 'PageDown':
+          e.preventDefault();
+          goToNextChapter();
+          break;
+        case 'ArrowLeft':
+        case 'PageUp':
+          e.preventDefault();
+          goToPreviousChapter();
+          break;
+        case 'c':
+        case 'C':
+        case 'Escape':
+          e.preventDefault();
+          setShowControls(prev => !prev);
+          break;
+        default:
+          break;
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [book, selectedWord, showReaderSettings, goToNextChapter, goToPreviousChapter]);
+
   const handleBack = useCallback(() => {
     navigate('/');
   }, [navigate]);

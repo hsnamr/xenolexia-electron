@@ -1,14 +1,59 @@
-const {app, BrowserWindow, Menu, dialog, ipcMain} = require('electron');
+const {app, BrowserWindow, Menu, dialog, ipcMain, Tray} = require('electron');
 const path = require('path');
 const fs = require('fs').promises;
 const isDev = process.env.NODE_ENV === 'development';
 
 let mainWindow;
+let tray = null;
 
-function createWindow() {
-  mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
+const WINDOW_STATE_FILE = 'window-state.json';
+
+function getWindowStatePath() {
+  return path.join(app.getPath('userData'), WINDOW_STATE_FILE);
+}
+
+async function loadWindowState() {
+  try {
+    const statePath = getWindowStatePath();
+    const data = await fs.readFile(statePath, 'utf-8');
+    const state = JSON.parse(data);
+    const {width, height, x, y, isMaximized} = state;
+    if (typeof width === 'number' && typeof height === 'number' && width >= 800 && height >= 600) {
+      return {width, height, x: typeof x === 'number' ? x : undefined, y: typeof y === 'number' ? y : undefined, isMaximized: !!isMaximized};
+    }
+  } catch (_) {
+    // Ignore missing or invalid state
+  }
+  return null;
+}
+
+async function saveWindowState() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  try {
+    const bounds = mainWindow.getBounds();
+    const isMaximized = mainWindow.isMaximized();
+    const statePath = getWindowStatePath();
+    await fs.writeFile(
+      statePath,
+      JSON.stringify({
+        width: bounds.width,
+        height: bounds.height,
+        x: bounds.x,
+        y: bounds.y,
+        isMaximized,
+      }),
+      'utf-8'
+    );
+  } catch (err) {
+    console.error('Failed to save window state:', err);
+  }
+}
+
+async function createWindow() {
+  const state = await loadWindowState();
+  const options = {
+    width: state?.width ?? 1200,
+    height: state?.height ?? 800,
     minWidth: 800,
     minHeight: 600,
     webPreferences: {
@@ -22,7 +67,15 @@ function createWindow() {
     icon: path.join(__dirname, '../../assets/icon.png'),
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     show: false, // Don't show until ready
-  });
+  };
+  if (state?.x != null && state?.y != null) {
+    options.x = state.x;
+    options.y = state.y;
+  }
+  mainWindow = new BrowserWindow(options);
+  if (state?.isMaximized) {
+    mainWindow.maximize();
+  }
 
   // Load the app from built files (both dev and production use built files)
   // When packaged, dist is in resources/dist relative to the app
@@ -71,6 +124,10 @@ function createWindow() {
     if (isDev) {
       mainWindow.focus();
     }
+  });
+
+  mainWindow.on('close', () => {
+    saveWindowState();
   });
 
   mainWindow.on('closed', () => {
@@ -200,10 +257,33 @@ function setupIpcHandlers() {
   });
 }
 
+function createTray() {
+  const iconPath = path.join(__dirname, '../../assets/icon.png');
+  try {
+    tray = new Tray(iconPath);
+    tray.setToolTip('Xenolexia');
+    const contextMenu = Menu.buildFromTemplate([
+      {label: 'Show Xenolexia', click: () => { if (mainWindow) { mainWindow.show(); mainWindow.focus(); } }},
+      {type: 'separator'},
+      {label: 'Quit', click: () => app.quit()},
+    ]);
+    tray.setContextMenu(contextMenu);
+    tray.on('click', () => {
+      if (mainWindow) {
+        mainWindow.isVisible() ? mainWindow.hide() : mainWindow.show();
+        if (mainWindow.isVisible()) mainWindow.focus();
+      }
+    });
+  } catch (err) {
+    console.warn('System tray not available:', err.message);
+  }
+}
+
 // App event handlers
 app.whenReady().then(() => {
   setupIpcHandlers();
   createWindow();
+  createTray();
 
   // macOS: Re-create window when dock icon is clicked
   app.on('activate', () => {

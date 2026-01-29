@@ -94,4 +94,14 @@ describe('VocabularyStore', () => {
       expect(useVocabularyStore.getState().vocabulary).toHaveLength(0);
     });
   });
+
+  describe('getDueForReview', () => {
+    it('should call vocabularyRepository.getDueForReview and return words', async () => {
+      const dueWords = [makeWord({id: 'due1'})];
+      (vocabularyRepository.getDueForReview as jest.Mock).mockResolvedValue(dueWords);
+      const result = await useVocabularyStore.getState().getDueForReview();
+      expect(vocabularyRepository.getDueForReview).toHaveBeenCalled();
+      expect(result).toEqual(dueWords);
+    });
+  });
 });

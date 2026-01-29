@@ -36,7 +36,7 @@ const DATABASE_NAME = 'xenolexia.db';
 // Database Service Class
 // ============================================================================
 
-class DatabaseService {
+export class DatabaseService {
   private db: Database.Database | null = null;
   private isInitialized: boolean = false;
   private initPromise: Promise<void> | null = null;
@@ -610,3 +610,4 @@ const MIGRATIONS: MigrationDefinition[] = [
 // ============================================================================
 
 export const databaseService = new DatabaseService();
+(DatabaseService as unknown as { getInstance: () => DatabaseService }).getInstance = () => databaseService;

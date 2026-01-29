@@ -214,3 +214,46 @@
   background: var(--border-secondary, #e5e7eb);
   margin: 12px 0;
 }
+
+/* Reading over time chart */
+.statistics-chart-card {
+  margin-bottom: 16px;
+}
+
+.statistics-chart-bars {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px;
+  height: 120px;
+  padding: 16px 0 8px;
+}
+
+.statistics-chart-bar-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+}
+
+.statistics-chart-bar {
+  width: 100%;
+  max-width: 32px;
+  min-height: 4px;
+  background: var(--primary, #6366f1);
+  border-radius: 4px 4px 0 0;
+  transition: height 0.2s ease;
+}
+
+.statistics-chart-label {
+  font-size: 11px;
+  color: var(--text-secondary, #6b7280);
+  margin-top: 6px;
+}
+
+.statistics-chart-caption {
+  font-size: 12px;
+  color: var(--text-secondary, #6b7280);
+  margin: 8px 0 0;
+}

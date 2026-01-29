@@ -120,6 +120,35 @@ export function StatisticsScreen(): React.JSX.Element {
           </div>
         </div>
 
+        {/* Reading over time (last 7 days) */}
+        <div className="statistics-section">
+          <h2 className="statistics-section-title">Reading over time</h2>
+          <Card variant="outlined" padding="md" className="statistics-chart-card">
+            <div className="statistics-chart-bars">
+              {[6, 5, 4, 3, 2, 1, 0].map(dayOffset => {
+                const d = new Date();
+                d.setDate(d.getDate() - dayOffset);
+                const isToday = dayOffset === 0;
+                const value = isToday ? stats.wordsRevealedToday : 0;
+                const maxVal = Math.max(stats.wordsRevealedToday, 1);
+                const heightPct = maxVal > 0 ? (value / maxVal) * 100 : 0;
+                const dayLabel = d.toLocaleDateString('en-US', {weekday: 'short'});
+                return (
+                  <div key={dayOffset} className="statistics-chart-bar-wrap">
+                    <div
+                      className="statistics-chart-bar"
+                      style={{height: `${heightPct}%`}}
+                      title={`${dayLabel}: ${value} words`}
+                    />
+                    <span className="statistics-chart-label">{dayLabel}</span>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="statistics-chart-caption">Words revealed per day (today has real data)</p>
+          </Card>
+        </div>
+
         {/* All-time Stats */}
         <div className="statistics-section">
           <h2 className="statistics-section-title">All Time</h2>

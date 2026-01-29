@@ -7,6 +7,27 @@ import {useReaderStore} from '../stores/readerStore';
 
 import type {Book} from '../types';
 
+// Mock DatabaseService so libraryStore (imported by readerStore) doesn't load real DB
+jest.mock('../services/StorageService/DatabaseService', () => ({
+  databaseService: {
+    initialize: jest.fn().mockResolvedValue(undefined),
+    transaction: jest.fn((cb: (tx: unknown) => Promise<void>) => cb({})),
+    getOne: jest.fn().mockResolvedValue(null),
+    getAll: jest.fn().mockResolvedValue([]),
+    run: jest.fn().mockResolvedValue(undefined),
+    exec: jest.fn().mockResolvedValue(undefined),
+  },
+}));
+
+// Mock StorageService so we don't pull in full StorageService implementation
+jest.mock('../services/StorageService/StorageService', () => ({
+  StorageService: {
+    startSession: jest.fn().mockResolvedValue('session-1'),
+    endSession: jest.fn().mockResolvedValue(undefined),
+    initialize: jest.fn().mockResolvedValue(undefined),
+  },
+}));
+
 // Mock dependencies
 jest.mock('../services/BookParser/EPUBParser');
 jest.mock('../services/BookParser/ChapterContentService', () => ({

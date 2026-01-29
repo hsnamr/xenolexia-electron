@@ -3,7 +3,7 @@ module.exports = {
   env: {
     es2022: true,
     node: true,
-    'react-native/react-native': true,
+    browser: true,
   },
   parser: '@typescript-eslint/parser',
   parserOptions: {
@@ -13,13 +13,12 @@ module.exports = {
       jsx: true,
     },
   },
-  plugins: ['@typescript-eslint', 'react', 'react-hooks', 'react-native', 'import', 'prettier'],
+  plugins: ['@typescript-eslint', 'react', 'react-hooks', 'import', 'prettier'],
   extends: [
     'eslint:recommended',
     'plugin:@typescript-eslint/recommended',
     'plugin:react/recommended',
     'plugin:react-hooks/recommended',
-    'plugin:react-native/all',
     'plugin:prettier/recommended',
   ],
   settings: {
@@ -52,13 +51,6 @@ module.exports = {
     'react-hooks/rules-of-hooks': 'error',
     'react-hooks/exhaustive-deps': 'warn',
 
-    // React Native
-    'react-native/no-inline-styles': 'warn',
-    'react-native/no-color-literals': 'warn',
-    'react-native/no-unused-styles': 'warn',
-    'react-native/split-platform-components': 'off',
-    'react-native/no-raw-text': 'off', // Too strict for now
-
     // TypeScript
     '@typescript-eslint/no-unused-vars': ['warn', {argsIgnorePattern: '^_'}],
     '@typescript-eslint/explicit-function-return-type': 'off',
@@ -79,21 +71,6 @@ module.exports = {
             pattern: 'react',
             group: 'builtin',
             position: 'before',
-          },
-          {
-            pattern: 'react-native',
-            group: 'builtin',
-            position: 'before',
-          },
-          {
-            pattern: 'react-native-**',
-            group: 'external',
-            position: 'after',
-          },
-          {
-            pattern: '@react-navigation/**',
-            group: 'external',
-            position: 'after',
           },
           {
             pattern: '@/**',
@@ -131,7 +108,7 @@ module.exports = {
             position: 'before',
           },
         ],
-        pathGroupsExcludedImportTypes: ['react', 'react-native', 'type'],
+        pathGroupsExcludedImportTypes: ['react', 'type'],
         alphabetize: {
           order: 'asc',
           caseInsensitive: true,
@@ -187,12 +164,10 @@ module.exports = {
   ],
   ignorePatterns: [
     'node_modules/',
-    'android/',
-    'ios/',
-    '.expo/',
     'coverage/',
     '*.lock',
-    'metro.config.js',
     'electron/**/*.js',
+    'dist/',
+    'release/',
   ],
 };

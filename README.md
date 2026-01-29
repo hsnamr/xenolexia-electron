@@ -4,6 +4,8 @@
 
 **Xenolexia** is an Electron desktop e-book reader that helps you learn languages by reading. Words matching your proficiency level appear in your target language; hover to reveal the original. Build vocabulary and review with spaced repetition—all from your desktop on **Windows**, **macOS**, and **Linux**.
 
+This project is **Electron-only**; there are no iOS, Android, or web targets.
+
 ---
 
 ## 🎯 The Concept
@@ -162,9 +164,9 @@ xenolexia-electron/
 
 ## 🗺️ Roadmap
 
-- **MVP**: Import books, read with word replacement, hover-to-reveal, save to vocabulary, library and settings. ✅ In progress
-- **Next**: Review screen (flashcards), onboarding, export, UI polish.
-- **Later**: More discovery sources, keyboard shortcuts, auto-updates.
+- **MVP**: Import books, read with word replacement, hover-to-reveal, save to vocabulary, library and settings. ✅ Done
+- **Done**: Review screen (flashcards), onboarding, export, reader settings, book detail, keyboard shortcuts, window state persistence, Statistics chart.
+- **Later**: More discovery sources, optional system tray / auto-updates.
 
 ---
 

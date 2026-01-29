@@ -59,34 +59,58 @@ module.exports = {
   resolve: {
     extensions: ['.web.tsx', '.web.ts', '.web.js', '.tsx', '.ts', '.js'],
     alias: {
-      // Map react-native to react-native-web
-      'react-native$': path.resolve(__dirname, '../../node_modules/react-native-web'),
-      // Shared package
       '@xenolexia/shared': path.resolve(__dirname, '../shared/src'),
-      // Path aliases for desktop package
       '@': path.resolve(appDirectory, 'src'),
       '@components': path.resolve(appDirectory, 'src/components'),
       '@screens': path.resolve(appDirectory, 'src/screens'),
       '@navigation': path.resolve(appDirectory, 'src/navigation'),
       '@theme': path.resolve(appDirectory, 'src/theme'),
       '@app': path.resolve(appDirectory, 'src/app'),
-      // Web mocks for native modules
       'react-native-fs': path.resolve(__dirname, 'src/mocks/react-native-fs.electron.ts'),
-      'react-native-document-picker': path.resolve(__dirname, '../../packages/mobile/src/mocks/react-native-document-picker.web.ts'),
-      'react-native-sqlite-storage': path.resolve(__dirname, '../../packages/mobile/src/mocks/react-native-sqlite-storage.web.ts'),
-      'react-native-webview': path.resolve(__dirname, '../../packages/mobile/src/mocks/react-native-webview.web.tsx'),
+      'react-native-document-picker': path.resolve(__dirname, 'src/mocks/react-native-document-picker.electron.ts'),
+      'empty-node-fs': path.resolve(__dirname, 'src/mocks/empty-node-module.js'),
+      'node:assert': 'assert',
+      'node:crypto': 'crypto',
+      'node:events': 'events',
+      'node:path': 'path',
+      'node:process': 'process',
+      'node:stream': 'stream',
+      'node:util': 'util',
     },
     fallback: {
-      crypto: false,
-      stream: false,
-      buffer: false,
+      assert: require.resolve('assert/'),
+      crypto: require.resolve('crypto-browserify'),
+      stream: require.resolve('stream-browserify'),
+      buffer: require.resolve('buffer/'),
+      path: require.resolve('path-browserify'),
+      process: require.resolve('process/browser.js'),
+      util: require.resolve('util/'),
+      events: require.resolve('events/'),
+      vm: require.resolve('vm-browserify'),
       fs: false,
-      path: false,
     },
   },
   plugins: [
     new webpack.DefinePlugin({
       __DEV__: JSON.stringify(isDev),
+    }),
+    // Rewrite node: protocol requests to polyfill paths so webpack doesn't hit UnhandledSchemeError
+    new webpack.NormalModuleReplacementPlugin(/^node:/, (resource) => {
+      const name = resource.request.slice(5); // 'node:assert' -> 'assert'
+      const map = {
+        assert: require.resolve('assert/'),
+        crypto: require.resolve('crypto-browserify'),
+        events: require.resolve('events/'),
+        path: require.resolve('path-browserify'),
+        process: require.resolve('process/browser.js'),
+        stream: require.resolve('stream-browserify'),
+        util: require.resolve('util/'),
+        fs: 'empty-node-fs',
+        os: require.resolve('os-browserify/browser.js'),
+      };
+      if (map[name]) {
+        resource.request = map[name];
+      }
     }),
     new HtmlWebpackPlugin({
       template: path.resolve(appDirectory, 'public/index.html'),

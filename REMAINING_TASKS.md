@@ -15,67 +15,31 @@ This document outlines remaining work for the Xenolexia Electron app (Windows, m
 - Settings: persistence (electron-store), language pair, proficiency, density, daily goal
 - Statistics: session and reading stats from DB
 - Build: electron-builder for Windows, macOS, Linux
+- **Review screen**: Flashcard UI, SM-2 grading (Again/Hard/Good/Easy/Already Knew), due-for-review
+- **Session and progress persistence**: start/end session, wordsRevealed/Saved, position per book
+- **Onboarding**: First-run flow (welcome, language pair, proficiency, word density), skip option
+- **Export**: UI in Settings (JSON/CSV/Anki), save dialog
+- **Reader settings in UI**: Theme, font size, font family, line spacing panel in reader
+- **Book detail**: Modal from Library (metadata, progress, Read/Change language/Forget/Delete)
+- **Keyboard shortcuts**: Reader next/prev chapter (Arrow keys, Page Up/Down), toggle controls (c/Escape)
+- **Theme consistency**: CSS variables in App.css (--primary, --background, --text-*, --border, etc.)
+- **Window state persistence**: Save/restore size, position, maximized in Electron main
+- **Unit tests**: ReaderStore (DatabaseService/StorageService mocked), VocabularyStore getDueForReview
 
 ---
 
-## 🔶 Remaining (by priority)
+## 🔶 Completed (remaining tasks)
 
-### High
+- **Package cleanup**: React Native / iOS / Android removed from root `package.json`; ESLint updated (no react-native plugin).
+- **Statistics chart**: “Reading over time” bar chart (last 7 days, words revealed) on Statistics screen.
+- **E2E tests**: Launch, #root content, Library/Onboarding content checks in `e2e/electron-app.spec.ts`.
+- **README/PLAN**: Electron-only note in README; roadmap updated; PLAN already desktop-only.
+- **System tray**: Tray icon with Show/Hide and Quit (Electron main).
 
-1. **Package cleanup**
+### Optional / later
 
-   - Remove React Native (and iOS/Android) dependencies and scripts from root `package.json`.
-   - Ensure no code paths depend on React Native or mobile.
-
-2. **Review screen**
-
-   - Flashcard review UI.
-   - SM-2 grading (Already Knew, Easy, Good, Hard, Again).
-   - Integration with vocabulary store and due-for-review logic.
-
-3. **Session and progress persistence**
-   - Start/end reading session when opening/closing a book (or on idle).
-   - Persist reading position (chapter, scroll) per book.
-
-### Medium
-
-4. **Onboarding**
-
-   - First-run flow: welcome, language pair, proficiency, word density (optional skip).
-
-5. **Export**
-
-   - UI for data export (vocabulary, reading stats).
-   - Export formats (e.g. JSON/CSV) and save dialog.
-
-6. **Reader settings in UI**
-
-   - Font size, font family, theme, line spacing in reader (not only in app settings).
-
-7. **Book detail**
-   - Dedicated screen or modal: metadata, progress, delete, change language/density.
-
-### Low / Polish
-
-8. **UI**
-
-   - Keyboard shortcuts (e.g. next/prev chapter, toggle sidebar).
-   - Theme consistency (CSS variables) across app.
-   - Optional: charts on Statistics (e.g. reading over time).
-
-9. **Electron**
-
-   - Window state (size, position) persistence.
-   - Optional: system tray, auto-updater, code signing.
-
-10. **Testing**
-
-    - Unit tests for all critical paths (see below).
-    - E2E/UI tests for main flows (launch, library, open book, vocabulary).
-
-11. **Docs and release**
-    - App icons and installers per platform.
-    - README/PLAN kept in sync with Electron-only scope (no iOS/Android).
+- App icons and installers per platform (icons exist; electron-builder config in place).
+- Auto-updater, code signing (require certs and release pipeline).
 
 ---
 
@@ -104,14 +68,17 @@ This document outlines remaining work for the Xenolexia Electron app (Windows, m
 
 ## 📋 Checklist (from PLAN, trimmed)
 
-- [ ] Remove React Native / iOS / Android from root package.json and scripts
-- [ ] Review screen (flashcards + SM-2)
-- [ ] Reading session start/end and position persistence
-- [ ] Onboarding flow
-- [ ] Export UI and save dialog
-- [ ] Reader settings in UI (font, theme, spacing)
-- [ ] Book detail screen/modal
-- [ ] Unit tests for StorageService, TranslationEngine, ChapterContentService, stores
-- [ ] E2E/UI tests (Electron)
-- [ ] Window state persistence
-- [ ] App icons and installer polish
+- [x] Remove React Native / iOS / Android from root package.json and scripts
+- [x] Review screen (flashcards + SM-2)
+- [x] Reading session start/end and position persistence
+- [x] Onboarding flow
+- [x] Export UI and save dialog
+- [x] Reader settings in UI (font, theme, spacing)
+- [x] Book detail screen/modal
+- [x] Unit tests for StorageService, TranslationEngine, ChapterContentService, stores, ReaderStore, VocabularyStore (getDueForReview)
+- [x] E2E/UI tests (Electron)
+- [x] Window state persistence
+- [x] Statistics chart (reading over time)
+- [x] System tray
+- [x] README/PLAN in sync with Electron-only
+- [ ] App icons and installer polish (optional)
