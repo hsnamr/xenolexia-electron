@@ -13,6 +13,12 @@ export interface ElectronAPI {
     properties: string[];
   }) => Promise<{path: string; name: string; size: number} | null>;
 
+  showSaveDialog: (options?: {
+    title?: string;
+    defaultPath?: string;
+    filters?: Array<{name: string; extensions: string[]}>;
+  }) => Promise<string | null>;
+
   readFile: (filePath: string) => Promise<ArrayBuffer>;
   readFileText: (filePath: string) => Promise<string>;
   writeFile: (filePath: string, content: ArrayBuffer | string) => Promise<string>;

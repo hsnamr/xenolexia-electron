@@ -26,6 +26,10 @@ try {
     return ipcRenderer.invoke('dialog:showOpenDialog', options);
   },
 
+  showSaveDialog: options => {
+    return ipcRenderer.invoke('dialog:showSaveDialog', options);
+  },
+
   // File operations
   readFile: filePath => {
     return ipcRenderer.invoke('file:readFile', filePath);

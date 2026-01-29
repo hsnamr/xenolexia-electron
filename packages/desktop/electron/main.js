@@ -101,6 +101,17 @@ function setupIpcHandlers() {
     };
   });
 
+  ipcMain.handle('dialog:showSaveDialog', async (event, options) => {
+    const result = await dialog.showSaveDialog(mainWindow, {
+      ...options,
+      title: options?.title || 'Save Export',
+    });
+    if (result.canceled || !result.filePath) {
+      return null;
+    }
+    return result.filePath;
+  });
+
   // File operations
   ipcMain.handle('file:readFile', async (event, filePath) => {
     const buffer = await fs.readFile(filePath);

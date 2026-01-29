@@ -2,12 +2,19 @@
  * Settings Screen - Desktop version with dictionary management
  */
 
-import React, {useState, useCallback} from 'react';
+import React, {useState, useCallback, useEffect} from 'react';
 import {useNavigate} from 'react-router-dom';
 import {useUserStore} from '@xenolexia/shared/stores/userStore';
 import {useLibraryStore} from '@xenolexia/shared/stores/libraryStore';
+import {useVocabularyStore} from '@xenolexia/shared/stores/vocabularyStore';
 import {SUPPORTED_LANGUAGES, getLanguageInfo, type Language, type ProficiencyLevel} from '@xenolexia/shared/types';
 import {Button, Card} from '../components/ui';
+import {
+  generateExportContent,
+  getSuggestedFilename,
+  getSaveDialogFilters,
+  type ExportFormat,
+} from '../utils/exportVocabulary';
 import './SettingsScreen.css';
 
 interface DictionaryPair {
@@ -20,14 +27,12 @@ export function SettingsScreen(): React.JSX.Element {
   const navigate = useNavigate();
   const {preferences, updatePreferences, resetPreferences, loadPreferences} = useUserStore();
   const {books, removeBook} = useLibraryStore();
-  
-  // Load preferences on mount
-  React.useEffect(() => {
-    loadPreferences();
-  }, [loadPreferences]);
+  const {vocabulary, initialize: initVocabulary} = useVocabularyStore();
   const [showLanguagePicker, setShowLanguagePicker] = useState(false);
   const [showDictionaryManager, setShowDictionaryManager] = useState(false);
   const [showBookManager, setShowBookManager] = useState(false);
+  const [exportFormat, setExportFormat] = useState<ExportFormat>('json');
+  const [isExporting, setIsExporting] = useState(false);
   const [dictionaries, setDictionaries] = useState<DictionaryPair[]>(() => {
     // Initialize with default dictionary
     return [{
@@ -36,6 +41,13 @@ export function SettingsScreen(): React.JSX.Element {
       installed: true,
     }];
   });
+
+  useEffect(() => {
+    loadPreferences();
+  }, [loadPreferences]);
+  useEffect(() => {
+    initVocabulary();
+  }, [initVocabulary]);
 
   const sourceLang = getLanguageInfo(preferences.defaultSourceLanguage);
   const targetLang = getLanguageInfo(preferences.defaultTargetLanguage);
@@ -79,6 +91,38 @@ export function SettingsScreen(): React.JSX.Element {
       }
     }
   }, [books, removeBook]);
+
+  const handleExport = useCallback(async () => {
+    if (!window.electronAPI?.showSaveDialog || !window.electronAPI?.writeFile) {
+      alert('Export is only available in the desktop app.');
+      return;
+    }
+    if (vocabulary.length === 0) {
+      alert('No vocabulary to export.');
+      return;
+    }
+    setIsExporting(true);
+    try {
+      const defaultPath = getSuggestedFilename(exportFormat);
+      const filePath = await window.electronAPI.showSaveDialog({
+        title: 'Export vocabulary',
+        defaultPath,
+        filters: getSaveDialogFilters(exportFormat),
+      });
+      if (!filePath) {
+        setIsExporting(false);
+        return;
+      }
+      const content = generateExportContent(vocabulary, exportFormat);
+      await window.electronAPI.writeFile(filePath, content);
+      alert(`Exported ${vocabulary.length} words to ${filePath}`);
+    } catch (error) {
+      console.error('Export failed:', error);
+      alert('Export failed. See console for details.');
+    } finally {
+      setIsExporting(false);
+    }
+  }, [vocabulary, exportFormat]);
 
   return (
     <div className="settings-screen">
@@ -177,6 +221,40 @@ export function SettingsScreen(): React.JSX.Element {
                 className="settings-number-input"
               />
               <span className="settings-value-badge">min</span>
+            </div>
+          </Card>
+        </div>
+
+        {/* Export Section */}
+        <div className="settings-section">
+          <h2 className="settings-section-title">EXPORT</h2>
+          <Card variant="outlined" padding="md" className="settings-section-card">
+            <div className="settings-row">
+              <span className="settings-row-icon">📤</span>
+              <div className="settings-row-content">
+                <span className="settings-row-label">Export vocabulary</span>
+                <span className="settings-row-value">
+                  {vocabulary.length} word{vocabulary.length !== 1 ? 's' : ''} • Choose format and save to file
+                </span>
+              </div>
+            </div>
+            <div className="settings-export-row">
+              <select
+                className="settings-select"
+                value={exportFormat}
+                onChange={(e) => setExportFormat(e.target.value as ExportFormat)}
+              >
+                <option value="json">JSON (full backup)</option>
+                <option value="csv">CSV (spreadsheet)</option>
+                <option value="anki">Anki (flashcards)</option>
+              </select>
+              <Button
+                variant="primary"
+                onClick={handleExport}
+                disabled={isExporting || vocabulary.length === 0}
+              >
+                {isExporting ? 'Exporting…' : 'Export and save…'}
+              </Button>
             </div>
           </Card>
         </div>

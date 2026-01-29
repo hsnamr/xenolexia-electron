@@ -6,3 +6,4 @@ export {ReaderScreen} from './ReaderScreen';
 export {VocabularyScreen} from './VocabularyScreen';
 export {BookDiscoveryScreen} from './BookDiscoveryScreen';
 export {ReviewScreen} from './ReviewScreen';
+export {OnboardingScreen} from './OnboardingScreen';

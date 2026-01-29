@@ -17,6 +17,7 @@ export function LibraryScreen(): React.JSX.Element {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [importProgress, setImportProgress] = useState<string>('');
+  const [detailBook, setDetailBook] = useState<Book | null>(null);
 
   useEffect(() => {
     initialize();
@@ -277,6 +278,97 @@ export function LibraryScreen(): React.JSX.Element {
           ))}
         </div>
       )}
+
+      {detailBook && (
+        <BookDetailModal
+          book={detailBook}
+          onClose={() => setDetailBook(null)}
+          onRead={() => {
+            setDetailBook(null);
+            handleBookPress(detailBook);
+          }}
+          onDelete={async () => {
+            await handleDeleteBook(detailBook.id);
+            setDetailBook(null);
+          }}
+          onChangeLanguage={async () => {
+            await handleChangeLanguage(detailBook);
+            setDetailBook(null);
+          }}
+          onForgetProgress={async () => {
+            await handleForgetProgress(detailBook);
+            setDetailBook(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+interface BookDetailModalProps {
+  book: Book;
+  onClose: () => void;
+  onRead: () => void;
+  onDelete: () => void;
+  onChangeLanguage: () => void;
+  onForgetProgress: () => void;
+}
+
+function BookDetailModal({
+  book,
+  onClose,
+  onRead,
+  onDelete,
+  onChangeLanguage,
+  onForgetProgress,
+}: BookDetailModalProps): React.JSX.Element {
+  return (
+    <div className="book-detail-overlay" onClick={onClose}>
+      <div className="book-detail-modal" onClick={e => e.stopPropagation()}>
+        <div className="book-detail-header">
+          <h2>Book details</h2>
+          <button type="button" className="book-detail-close" onClick={onClose}>
+            ✕
+          </button>
+        </div>
+        <div className="book-detail-body">
+          <h3 className="book-detail-title">{book.title}</h3>
+          <p className="book-detail-author">{book.author || 'Unknown author'}</p>
+          <dl className="book-detail-meta">
+            <dt>Format</dt>
+            <dd>{book.format.toUpperCase()}</dd>
+            <dt>Progress</dt>
+            <dd>{Math.round(book.progress)}%</dd>
+            <dt>Language pair</dt>
+            <dd>
+              {book.languagePair.sourceLanguage} → {book.languagePair.targetLanguage}
+            </dd>
+            <dt>Proficiency</dt>
+            <dd>{book.proficiencyLevel}</dd>
+            <dt>Word density</dt>
+            <dd>{Math.round((book.wordDensity ?? 0.3) * 100)}%</dd>
+            <dt>Added</dt>
+            <dd>{new Date(book.addedAt).toLocaleDateString()}</dd>
+          </dl>
+        </div>
+        <div className="book-detail-actions">
+          <Button variant="primary" onClick={onRead}>
+            Read
+          </Button>
+          <Button variant="outline" onClick={onChangeLanguage}>
+            Change language
+          </Button>
+          <Button variant="outline" onClick={onForgetProgress}>
+            Forget progress
+          </Button>
+          <Button variant="outline" onClick={onDelete} className="book-detail-delete">
+            Delete book
+          </Button>
+          <Button variant="outline" onClick={onClose}>
+            Close
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

@@ -32,6 +32,7 @@ export function ReaderScreen(): React.JSX.Element {
     goToNextChapter,
     goToPreviousChapter,
     updateProgress,
+    updateSettings,
     closeBook,
     recordWordSaved,
   } = useReaderStore();
@@ -40,6 +41,7 @@ export function ReaderScreen(): React.JSX.Element {
   const book = bookId ? getBook(bookId) : null;
   const [selectedWord, setSelectedWord] = useState<ForeignWordData | null>(null);
   const [showControls, setShowControls] = useState(true);
+  const [showReaderSettings, setShowReaderSettings] = useState(false);
 
   useEffect(() => {
     if (bookId && book) {
@@ -113,7 +115,7 @@ export function ReaderScreen(): React.JSX.Element {
           <div className="reader-header-center">
             <h2>{currentChapter?.title || book.title}</h2>
           </div>
-          <button onClick={() => setShowSettings(true)} className="reader-settings-button">
+          <button onClick={() => setShowReaderSettings(true)} className="reader-settings-button">
             ⚙️
           </button>
         </div>
@@ -168,10 +170,16 @@ export function ReaderScreen(): React.JSX.Element {
         </div>
       )}
 
+      {showReaderSettings && (
+        <ReaderSettingsPanel
+          settings={settings}
+          onUpdate={updateSettings}
+          onClose={() => setShowReaderSettings(false)}
+        />
+      )}
       {selectedWord && (
         <TranslationPopup
           word={selectedWord}
-          book={book}
           isSaved={isWordSaved(selectedWord.originalWord, selectedWord.wordEntry.targetLanguage)}
           onDismiss={dismissPopup}
           onSave={async () => {
@@ -218,6 +226,86 @@ export function ReaderScreen(): React.JSX.Element {
           }}
         />
       )}
+    </div>
+  );
+}
+
+interface ReaderSettingsPanelProps {
+  settings: {
+    theme: string;
+    fontFamily: string;
+    fontSize: number;
+    lineHeight: number;
+  };
+  onUpdate: (updates: Partial<ReaderSettingsPanelProps['settings']>) => void;
+  onClose: () => void;
+}
+
+function ReaderSettingsPanel({
+  settings,
+  onUpdate,
+  onClose,
+}: ReaderSettingsPanelProps): React.JSX.Element {
+  return (
+    <div className="reader-settings-overlay" onClick={onClose}>
+      <div className="reader-settings-panel" onClick={e => e.stopPropagation()}>
+        <div className="reader-settings-header">
+          <h3>Reader settings</h3>
+          <button type="button" onClick={onClose} className="reader-settings-close">
+            ✕
+          </button>
+        </div>
+        <div className="reader-settings-body">
+          <label>
+            Theme
+            <select
+              value={settings.theme}
+              onChange={e => onUpdate({theme: e.target.value})}
+              className="reader-settings-select"
+            >
+              <option value="light">Light</option>
+              <option value="sepia">Sepia</option>
+              <option value="dark">Dark</option>
+            </select>
+          </label>
+          <label>
+            Font size
+            <input
+              type="number"
+              min={12}
+              max={32}
+              value={settings.fontSize}
+              onChange={e => onUpdate({fontSize: Number(e.target.value) || 18})}
+              className="reader-settings-input"
+            />
+          </label>
+          <label>
+            Font family
+            <select
+              value={settings.fontFamily}
+              onChange={e => onUpdate({fontFamily: e.target.value})}
+              className="reader-settings-select"
+            >
+              <option value="Georgia">Georgia</option>
+              <option value="serif">Serif</option>
+              <option value="'Times New Roman', serif">Times New Roman</option>
+              <option value="system-ui, sans-serif">System</option>
+            </select>
+          </label>
+          <label>
+            Line spacing
+            <input
+              type="number"
+              min={1}
+              max={3}
+              step={0.1}
+              value={settings.lineHeight}
+              onChange={e => onUpdate({lineHeight: Number(e.target.value) || 1.6})}
+              className="reader-settings-input"
+            />
+          </label>
+        </div>
+      </div>
     </div>
   );
 }
