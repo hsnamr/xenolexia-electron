@@ -119,11 +119,6 @@ This contextual immersion mimics how we naturally acquire language through meani
 
 ## 📱 Supported Platforms
 
-### Mobile (React Native)
-
-- **iOS**: 13.0+
-- **Android**: API 24+ (Android 7.0+)
-
 ### Desktop (Electron)
 
 - **Windows**: Windows 10+ (.exe installer + portable)
