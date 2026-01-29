@@ -3,16 +3,19 @@
  */
 
 import {useLibraryStore} from '../stores/libraryStore';
+
 import type {Book} from '../types';
 
 // Mock the book repository
 jest.mock('../services/StorageService/repositories', () => ({
   bookRepository: {
-    add: jest.fn(),
-    create: jest.fn(),
-    delete: jest.fn(),
-    remove: jest.fn(),
-    update: jest.fn(),
+    add: jest.fn().mockResolvedValue(undefined),
+    create: jest.fn().mockResolvedValue(undefined),
+    delete: jest.fn().mockResolvedValue(undefined),
+    remove: jest.fn().mockResolvedValue(undefined),
+    update: jest.fn().mockResolvedValue(undefined),
+    updateProgress: jest.fn().mockResolvedValue(undefined),
+    addReadingTime: jest.fn().mockResolvedValue(undefined),
     getById: jest.fn(),
     getAll: jest.fn(),
     search: jest.fn(),
@@ -81,7 +84,7 @@ describe('LibraryStore', () => {
       };
 
       await useLibraryStore.getState().addBook(mockBook);
-      
+
       // Check if book already exists before adding again
       const existingBook = useLibraryStore.getState().getBook('book-1');
       if (existingBook) {

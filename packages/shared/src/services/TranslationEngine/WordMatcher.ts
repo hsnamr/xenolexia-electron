@@ -8,9 +8,11 @@
  * - Proficiency level filtering
  */
 
-import type { Language, ProficiencyLevel, WordEntry } from '../types';
-import { WordDatabaseService, wordDatabase } from './WordDatabase';
-import { ALL_WORDS_EN_EL } from '../data/words_en_el';
+import {ALL_WORDS_EN_EL} from '../../data/words_en_el';
+
+import {WordDatabaseService, wordDatabase} from './WordDatabase';
+
+import type {Language, ProficiencyLevel, WordEntry} from '../types';
 
 // ============================================================================
 // Word Matcher
@@ -134,7 +136,7 @@ export class WordMatcher {
         normalized,
         this.sourceLanguage,
         this.targetLanguage,
-        { includeVariants: true }
+        {includeVariants: true}
       );
 
       if (entry && this.isWithinLevel(entry.proficiencyLevel, maxLevel)) {
@@ -205,7 +207,7 @@ export class WordMatcher {
     } catch (error) {
       // Use fallback
       const words: WordEntry[] = [];
-      this.fallbackWordList.forEach((entry) => {
+      this.fallbackWordList.forEach(entry => {
         if (entry.proficiencyLevel === level) {
           words.push(entry);
         }
@@ -252,8 +254,8 @@ export class WordMatcher {
       // Fallback search
       const results: WordEntry[] = [];
       const lowerQuery = query.toLowerCase();
-      
-      this.fallbackWordList.forEach((entry) => {
+
+      this.fallbackWordList.forEach(entry => {
         if (
           entry.sourceWord.toLowerCase().startsWith(lowerQuery) ||
           entry.targetWord.toLowerCase().startsWith(lowerQuery)
@@ -289,7 +291,7 @@ export class WordMatcher {
       let intermediate = 0;
       let advanced = 0;
 
-      this.fallbackWordList.forEach((entry) => {
+      this.fallbackWordList.forEach(entry => {
         switch (entry.proficiencyLevel) {
           case 'beginner':
             beginner++;
@@ -323,7 +325,7 @@ export class WordMatcher {
   /**
    * Get the current language pair
    */
-  getLanguagePair(): { source: Language; target: Language } {
+  getLanguagePair(): {source: Language; target: Language} {
     return {
       source: this.sourceLanguage,
       target: this.targetLanguage,

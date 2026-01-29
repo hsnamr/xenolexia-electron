@@ -5,3 +5,4 @@ export {SettingsScreen} from './SettingsScreen';
 export {ReaderScreen} from './ReaderScreen';
 export {VocabularyScreen} from './VocabularyScreen';
 export {BookDiscoveryScreen} from './BookDiscoveryScreen';
+export {ReviewScreen} from './ReviewScreen';

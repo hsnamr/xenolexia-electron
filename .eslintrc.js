@@ -157,20 +157,31 @@ module.exports = {
   overrides: [
     // Test files
     {
-      files: ['**/__tests__/**/*', '**/*.test.*', '**/*.spec.*'],
+      files: [
+        '**/__tests__/**/*',
+        '**/*.test.*',
+        '**/*.spec.*',
+        '**/jest.setup.js',
+        '**/jest.config.js',
+      ],
       env: {
         jest: true,
+        node: true,
       },
       rules: {
         '@typescript-eslint/no-explicit-any': 'off',
+        '@typescript-eslint/no-var-requires': 'off',
+        'no-undef': 'off',
+        'no-console': 'off',
       },
     },
     // Config files
     {
-      files: ['*.config.js', '*.config.ts', '.eslintrc.js'],
+      files: ['*.config.js', '*.config.ts', '.eslintrc.js', 'playwright.config.ts'],
       rules: {
         '@typescript-eslint/no-var-requires': 'off',
         'no-undef': 'off',
+        '@typescript-eslint/no-unused-vars': 'off',
       },
     },
   ],

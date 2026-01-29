@@ -7,11 +7,23 @@
 
 import {v4 as uuidv4} from 'uuid';
 
-import type {BookFormat} from '../types';
+import {
+  getAppDataPath,
+  mkdir,
+  writeFile,
+  fileExists,
+  readFileAsArrayBuffer,
+  readDir,
+  unlink,
+  readFileAsText,
+} from '../../utils/FileSystem.electron';
+import {Platform} from '../../utils/platform.electron';
 import {MetadataExtractor} from '../BookParser';
 import {FileSystemService} from '../FileSystemService';
-import { Platform } from '../../utils/platform.electron';
-import { getAppDataPath, mkdir, writeFile, fileExists, readFileAsArrayBuffer, readDir, unlink, readFileAsText } from '../../utils/FileSystem.electron';
+
+import {SUPPORTED_EXTENSIONS} from './types';
+
+import type {BookFormat} from '../types';
 import type {
   ImportProgress,
   ImportResult,
@@ -20,23 +32,21 @@ import type {
   CopiedFileInfo,
   ImportedBookMetadata,
 } from './types';
-import {SUPPORTED_EXTENSIONS} from './types';
 
 // ============================================================================
 // Constants
 // ============================================================================
 
-// Removed - using getBooksBaseDir() function instead
+/** Get books base directory (Electron: app data + /books) */
+async function getBooksBaseDir(): Promise<string> {
+  const appData = await getAppDataPath();
+  const booksDir = `${appData}/books`;
+  await mkdir(booksDir, {recursive: true});
+  return booksDir;
+}
 
 /** Whether to use File System Access API on web */
 const USE_FILE_SYSTEM_API = Platform.OS === 'web' && FileSystemService.isSupported();
-
-/** Supported document picker types */
-const PICKER_TYPES = [
-  types.epub,
-  types.plainText,
-  types.allFiles, // Fallback for formats not explicitly supported
-];
 
 // ============================================================================
 // Import Service Class
@@ -127,7 +137,7 @@ export class ImportService {
         const extension = this.getFileExtension(result.name || '');
         if (!this.isSupportedFormat(extension)) {
           throw new Error(
-            `Unsupported file format: ${extension}. Supported formats: ${SUPPORTED_EXTENSIONS.join(', ')}`,
+            `Unsupported file format: ${extension}. Supported formats: ${SUPPORTED_EXTENSIONS.join(', ')}`
           );
         }
 
@@ -141,9 +151,14 @@ export class ImportService {
 
       // Fallback to DocumentPicker if available (for mobile)
       try {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires -- optional RN dependency
         const DocumentPicker = require('react-native-document-picker');
         const result = await DocumentPicker.pick({
-          type: [DocumentPicker.types.epub, DocumentPicker.types.plainText, DocumentPicker.types.allFiles],
+          type: [
+            DocumentPicker.types.epub,
+            DocumentPicker.types.plainText,
+            DocumentPicker.types.allFiles,
+          ],
           copyTo: 'cachesDirectory',
           allowMultiSelection: false,
         });
@@ -152,7 +167,7 @@ export class ImportService {
         const extension = this.getFileExtension(file.name || '');
         if (!this.isSupportedFormat(extension)) {
           throw new Error(
-            `Unsupported file format: ${extension}. Supported formats: ${SUPPORTED_EXTENSIONS.join(', ')}`,
+            `Unsupported file format: ${extension}. Supported formats: ${SUPPORTED_EXTENSIONS.join(', ')}`
           );
         }
 
@@ -193,10 +208,7 @@ export class ImportService {
   /**
    * Import a book file into the app
    */
-  static async importBook(
-    file: SelectedFile,
-    options: ImportOptions = {},
-  ): Promise<ImportResult> {
+  static async importBook(file: SelectedFile, options: ImportOptions = {}): Promise<ImportResult> {
     const {onProgress, extractCover = true, parseMetadata = true} = options;
 
     try {
@@ -234,7 +246,7 @@ export class ImportService {
         try {
           const parsedMetadata = await this.parseBookMetadata(
             copiedFile.localPath,
-            copiedFile.format,
+            copiedFile.format
           );
           metadata = {...metadata, ...parsedMetadata};
         } catch (parseError) {
@@ -276,8 +288,7 @@ export class ImportService {
         metadata,
       };
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Import failed';
+      const errorMessage = error instanceof Error ? error.message : 'Import failed';
 
       onProgress?.({
         status: 'error',
@@ -299,7 +310,7 @@ export class ImportService {
    */
   private static async copyFileToStorage(
     file: SelectedFile,
-    bookId: string,
+    bookId: string
   ): Promise<CopiedFileInfo> {
     const format = this.detectFormat(file.name);
     const filename = `book.${format}`;
@@ -320,7 +331,7 @@ export class ImportService {
     file: SelectedFile,
     bookId: string,
     filename: string,
-    format: BookFormat,
+    format: BookFormat
   ): Promise<CopiedFileInfo> {
     // Fetch the file content from blob URL
     const response = await fetch(file.uri);
@@ -336,7 +347,7 @@ export class ImportService {
     const booksDir = await getBooksBaseDir();
     const bookDir = `${booksDir}/${bookId}`;
     const destPath = `${bookDir}/${filename}`;
-    await mkdir(bookDir, { recursive: true });
+    await mkdir(bookDir, {recursive: true});
     await writeFile(destPath, arrayBuffer);
 
     return {
@@ -355,14 +366,14 @@ export class ImportService {
     file: SelectedFile,
     bookId: string,
     filename: string,
-    format: BookFormat,
+    format: BookFormat
   ): Promise<CopiedFileInfo> {
     const booksDir = await getBooksBaseDir();
     const bookDir = `${booksDir}/${bookId}`;
     const destPath = `${bookDir}/${filename}`;
 
     // Create book directory
-    await mkdir(bookDir, { recursive: true });
+    await mkdir(bookDir, {recursive: true});
 
     // Read file and write to destination
     const arrayBuffer = await readFileAsArrayBuffer(file.uri);
@@ -382,7 +393,7 @@ export class ImportService {
    */
   private static async parseBookMetadata(
     filePath: string,
-    format: BookFormat,
+    format: BookFormat
   ): Promise<Partial<ImportedBookMetadata>> {
     switch (format) {
       case 'epub':
@@ -397,9 +408,7 @@ export class ImportService {
   /**
    * Parse EPUB metadata using MetadataExtractor
    */
-  private static async parseEPUBMetadata(
-    filePath: string,
-  ): Promise<Partial<ImportedBookMetadata>> {
+  private static async parseEPUBMetadata(filePath: string): Promise<Partial<ImportedBookMetadata>> {
     const extractor = new MetadataExtractor();
 
     try {
@@ -424,9 +433,7 @@ export class ImportService {
   /**
    * Parse TXT metadata (limited - just file info)
    */
-  private static async parseTXTMetadata(
-    filePath: string,
-  ): Promise<Partial<ImportedBookMetadata>> {
+  private static async parseTXTMetadata(filePath: string): Promise<Partial<ImportedBookMetadata>> {
     try {
       // Read first few lines to try to extract title
       const content = await readFileAsText(filePath);
@@ -434,9 +441,7 @@ export class ImportService {
       const fileSize = content.length;
 
       return {
-        title: firstLine?.length > 0 && firstLine.length < 100
-          ? firstLine
-          : undefined,
+        title: firstLine?.length > 0 && firstLine.length < 100 ? firstLine : undefined,
         estimatedPages: Math.ceil(fileSize / 2000), // Rough estimate
       };
     } catch {
@@ -447,15 +452,13 @@ export class ImportService {
   /**
    * Extract cover image from EPUB
    */
-  private static async extractCoverImage(
-    bookId: string,
-    filePath: string,
-  ): Promise<string | null> {
+  private static async extractCoverImage(bookId: string, filePath: string): Promise<string | null> {
     const extractor = new MetadataExtractor();
 
     try {
       await extractor.extractFromFile(filePath);
-      const bookDir = `${BOOKS_BASE_DIR}/${bookId}`;
+      const booksDir = await getBooksBaseDir();
+      const bookDir = `${booksDir}/${bookId}`;
       return await extractor.extractCover(bookDir);
     } catch (error) {
       console.warn('Failed to extract cover image:', error);

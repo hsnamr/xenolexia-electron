@@ -203,3 +203,8 @@
 .translation-popup-actions button:last-child:hover {
   background-color: #e5e7eb;
 }
+
+.translation-popup-saved {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

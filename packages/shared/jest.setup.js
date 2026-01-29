@@ -1,34 +1,12 @@
-// Mock React Native modules
-jest.mock('react-native', () => ({
-  Platform: {
-    OS: 'test',
-    select: jest.fn((obj) => obj.test || obj.default),
-  },
-}));
+// Electron / Node environment (no React Native)
+// Platform detection for tests
+if (typeof process === 'undefined') global.process = {platform: 'linux'};
 
-// Mock react-native-fs
-jest.mock('react-native-fs', () => ({
-  DocumentDirectoryPath: '/test/documents',
-  readFile: jest.fn(),
-  writeFile: jest.fn(),
-  exists: jest.fn(),
-  mkdir: jest.fn(),
-  unlink: jest.fn(),
-  readDir: jest.fn(),
-  stat: jest.fn(),
-  copyFile: jest.fn(),
-  moveFile: jest.fn(),
-}));
-
-// Mock react-native-document-picker
-jest.mock('react-native-document-picker', () => ({
-  pick: jest.fn(),
-  types: {
-    epub: 'epub',
-    plainText: 'plainText',
-    allFiles: 'allFiles',
-  },
-}));
+// Mock window.electronAPI when in Node (for code paths that check for Electron)
+if (typeof window === 'undefined') {
+  global.window = {};
+  global.window.electronAPI = undefined;
+}
 
 // Mock uuid
 jest.mock('uuid', () => ({

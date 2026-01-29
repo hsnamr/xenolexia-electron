@@ -2,7 +2,18 @@
  * Reader Store - Manages reading state, content loading, and progress tracking
  */
 
-import { create } from 'zustand';
+import {create} from 'zustand';
+
+import {BookParserService} from '../services/BookParser/BookParserService';
+import {
+  ChapterContentService,
+  chapterContentService,
+} from '../services/BookParser/ChapterContentService';
+import {StorageService} from '../services/StorageService/StorageService';
+
+import {useLibraryStore} from './libraryStore';
+
+import type {IBookParser} from '../services/BookParser/types';
 import type {
   Book,
   Chapter,
@@ -11,12 +22,6 @@ import type {
   ProcessedChapter,
   TableOfContentsItem,
 } from '../types/index';
-import { BookParserService } from '../services/BookParser/BookParserService';
-import type { IBookParser } from '../services/BookParser/types';
-import {
-  ChapterContentService,
-  chapterContentService,
-} from '../services/BookParser/ChapterContentService';
 
 // ============================================================================
 // Types
@@ -38,6 +43,11 @@ interface ReaderState {
   scrollPosition: number;
   chapterProgress: number;
   overallProgress: number;
+
+  // Session tracking
+  currentSessionId: string | null;
+  wordsRevealed: number; // Count of foreign words shown in this session
+  wordsSaved: number; // Count of words saved to vocabulary in this session
 
   // Reader settings (session copy)
   settings: ReaderSettings & {
@@ -63,7 +73,9 @@ interface ReaderState {
   updateSettings: (settings: Partial<ReaderState['settings']>) => void;
   updateProgress: (chapterProgress: number) => void;
   updateScrollPosition: (scrollY: number) => void;
-  closeBook: () => void;
+  recordWordRevealed: () => void;
+  recordWordSaved: () => void;
+  closeBook: () => Promise<void>;
 }
 
 // ============================================================================
@@ -100,6 +112,9 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
   scrollPosition: 0,
   chapterProgress: 0,
   overallProgress: 0,
+  currentSessionId: null,
+  wordsRevealed: 0,
+  wordsSaved: 0,
   settings: defaultSettings,
   isLoading: false,
   isLoadingChapter: false,
@@ -111,7 +126,7 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
    * Load a book and parse its content
    */
   loadBook: async (book: Book) => {
-    set({ isLoading: true, error: null, currentBook: book });
+    set({isLoading: true, error: null, currentBook: book});
 
     try {
       // Verify file exists and Electron API is available
@@ -131,10 +146,10 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
       // Detect format and create appropriate parser
       const format = BookParserService.detectFormat(book.filePath);
       console.log('Detected book format:', format);
-      
+
       const parser = BookParserService.getParser(book.filePath, format);
       console.log('Parser created, parsing book...');
-      
+
       // Parse the book
       const parsedBook = await parser.parse(book.filePath);
       console.log('Book parsed successfully:', {
@@ -187,20 +202,20 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
    * Navigate to a specific chapter
    */
   goToChapter: async (index: number) => {
-    const { currentBook, chapters, settings, contentService } = get();
+    const {currentBook, chapters, settings, contentService} = get();
 
-    console.log('goToChapter called:', { index, totalChapters: chapters.length });
+    console.log('goToChapter called:', {index, totalChapters: chapters.length});
 
     if (index < 0 || index >= chapters.length) {
       console.warn('Invalid chapter index:', index, 'Total chapters:', chapters.length);
       return;
     }
 
-    set({ isLoadingChapter: true, scrollPosition: 0, chapterProgress: 0, error: null });
+    set({isLoadingChapter: true, scrollPosition: 0, chapterProgress: 0, error: null});
 
     try {
       const chapter = chapters[index];
-      console.log('Loading chapter:', { index, title: chapter.title, wordCount: chapter.wordCount });
+      console.log('Loading chapter:', {index, title: chapter.title, wordCount: chapter.wordCount});
 
       if (!chapter || !chapter.content) {
         throw new Error(`Chapter ${index} has no content`);
@@ -231,10 +246,17 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
         translationOptions
       );
 
-      console.log('Chapter HTML generated, length:', processedContent.html.length, 'foreignWords:', processedContent.foreignWords?.length ?? 0);
+      console.log(
+        'Chapter HTML generated, length:',
+        processedContent.html.length,
+        'foreignWords:',
+        processedContent.foreignWords?.length ?? 0
+      );
 
       // Calculate overall progress
       const overallProgress = ((index + 1) / chapters.length) * 100;
+
+      const foreignWordsCount = processedContent.foreignWords?.length ?? 0;
 
       set({
         currentChapterIndex: index,
@@ -245,6 +267,22 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
         overallProgress,
         error: null,
       });
+
+      // Persist reading position to library store
+      if (currentBook) {
+        try {
+          await useLibraryStore
+            .getState()
+            .updateProgress(currentBook.id, overallProgress, `chapter-${index}`, index);
+        } catch (error) {
+          console.warn('Failed to persist reading position:', error);
+        }
+      }
+
+      // Track foreign words revealed
+      if (foreignWordsCount > 0) {
+        get().recordWordRevealed();
+      }
 
       console.log('Chapter loaded successfully');
     } catch (error) {
@@ -265,7 +303,7 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
    * Go to next chapter
    */
   goToNextChapter: async () => {
-    const { currentChapterIndex, chapters } = get();
+    const {currentChapterIndex, chapters} = get();
     if (currentChapterIndex < chapters.length - 1) {
       await get().goToChapter(currentChapterIndex + 1);
     }
@@ -275,7 +313,7 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
    * Go to previous chapter
    */
   goToPreviousChapter: async () => {
-    const { currentChapterIndex } = get();
+    const {currentChapterIndex} = get();
     if (currentChapterIndex > 0) {
       await get().goToChapter(currentChapterIndex - 1);
     }
@@ -285,8 +323,8 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
    * Update reader settings
    */
   updateSettings: (newSettings: Partial<ReaderState['settings']>) => {
-    set((state) => ({
-      settings: { ...state.settings, ...newSettings },
+    set(state => ({
+      settings: {...state.settings, ...newSettings},
     }));
   },
 
@@ -294,13 +332,12 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
    * Update reading progress within current chapter
    */
   updateProgress: (chapterProgress: number) => {
-    const { currentChapterIndex, chapters } = get();
+    const {currentChapterIndex, chapters} = get();
 
     // Calculate overall book progress
     const chapterWeight = 1 / chapters.length;
     const overallProgress =
-      currentChapterIndex * chapterWeight * 100 +
-      chapterProgress * chapterWeight;
+      currentChapterIndex * chapterWeight * 100 + chapterProgress * chapterWeight;
 
     set({
       chapterProgress,
@@ -312,14 +349,47 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
    * Update scroll position for restoring later
    */
   updateScrollPosition: (scrollY: number) => {
-    set({ scrollPosition: scrollY });
+    set({scrollPosition: scrollY});
+  },
+
+  /**
+   * Record that a foreign word was revealed (hovered/shown)
+   */
+  recordWordRevealed: () => {
+    set(state => ({
+      wordsRevealed: state.wordsRevealed + 1,
+    }));
+  },
+
+  /**
+   * Record that a word was saved to vocabulary
+   */
+  recordWordSaved: () => {
+    set(state => ({
+      wordsSaved: state.wordsSaved + 1,
+    }));
   },
 
   /**
    * Close the current book and clean up
    */
-  closeBook: () => {
-    const { parser, contentService } = get();
+  closeBook: async () => {
+    const {parser, contentService, currentSessionId, wordsRevealed, wordsSaved, currentBook} =
+      get();
+
+    // End reading session if one was started
+    if (currentSessionId && currentBook) {
+      try {
+        await StorageService.endSession(currentSessionId, {
+          pagesRead: 0, // Could calculate from chapters read
+          wordsRevealed,
+          wordsSaved,
+        });
+        console.log('Reading session ended:', currentSessionId);
+      } catch (error) {
+        console.warn('Failed to end reading session:', error);
+      }
+    }
 
     // Clean up resources
     parser?.dispose();
@@ -336,6 +406,9 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
       scrollPosition: 0,
       chapterProgress: 0,
       overallProgress: 0,
+      currentSessionId: null,
+      wordsRevealed: 0,
+      wordsSaved: 0,
       parser: null,
       error: null,
     });
@@ -346,14 +419,11 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
 // Selectors
 // ============================================================================
 
-export const selectCurrentChapterTitle = (state: ReaderState) =>
-  state.currentChapter?.title || '';
+export const selectCurrentChapterTitle = (state: ReaderState) => state.currentChapter?.title || '';
 
 export const selectHasNextChapter = (state: ReaderState) =>
   state.currentChapterIndex < state.chapters.length - 1;
 
-export const selectHasPreviousChapter = (state: ReaderState) =>
-  state.currentChapterIndex > 0;
+export const selectHasPreviousChapter = (state: ReaderState) => state.currentChapterIndex > 0;
 
-export const selectChapterCount = (state: ReaderState) =>
-  state.chapters.length;
+export const selectChapterCount = (state: ReaderState) => state.chapters.length;

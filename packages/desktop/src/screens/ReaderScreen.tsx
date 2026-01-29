@@ -3,13 +3,16 @@
  */
 
 import React, {useState, useCallback, useEffect} from 'react';
-import {useParams, useNavigate} from 'react-router-dom';
+
 import {useLibraryStore} from '@xenolexia/shared/stores/libraryStore';
 import {useReaderStore} from '@xenolexia/shared/stores/readerStore';
 import {useVocabularyStore} from '@xenolexia/shared/stores/vocabularyStore';
-import type {ForeignWordData, VocabularyItem} from '@xenolexia/shared/types';
+import {useParams, useNavigate} from 'react-router-dom';
 import {v4 as uuidv4} from 'uuid';
+
 import {ReaderContent} from './ReaderContent';
+
+import type {ForeignWordData, VocabularyItem} from '@xenolexia/shared/types';
 import './ReaderScreen.css';
 
 export function ReaderScreen(): React.JSX.Element {
@@ -30,11 +33,12 @@ export function ReaderScreen(): React.JSX.Element {
     goToPreviousChapter,
     updateProgress,
     closeBook,
+    recordWordSaved,
   } = useReaderStore();
 
+  const {addWord, isWordSaved} = useVocabularyStore();
   const book = bookId ? getBook(bookId) : null;
   const [selectedWord, setSelectedWord] = useState<ForeignWordData | null>(null);
-  const [showSettings, setShowSettings] = useState(false);
   const [showControls, setShowControls] = useState(true);
 
   useEffect(() => {
@@ -44,7 +48,8 @@ export function ReaderScreen(): React.JSX.Element {
     return () => {
       closeBook();
     };
-  }, [bookId, book, loadBook, closeBook]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookId, book]);
 
   const handleBack = useCallback(() => {
     navigate('/');
@@ -57,15 +62,20 @@ export function ReaderScreen(): React.JSX.Element {
 
   const handleWordHover = useCallback((word: ForeignWordData) => {
     setSelectedWord(word);
+    // Track word reveal for session stats
+    useReaderStore.getState().recordWordRevealed();
   }, []);
 
   const handleWordHoverEnd = useCallback(() => {
     setSelectedWord(null);
   }, []);
 
-  const handleProgressChange = useCallback((progress: number) => {
-    updateProgress(progress);
-  }, [updateProgress]);
+  const handleProgressChange = useCallback(
+    (progress: number) => {
+      updateProgress(progress);
+    },
+    [updateProgress]
+  );
 
   const dismissPopup = useCallback(() => {
     setSelectedWord(null);
@@ -144,13 +154,14 @@ export function ReaderScreen(): React.JSX.Element {
             ← Previous
           </button>
           <div className="reader-progress">
-            {chapters.length > 0 
-              ? Math.round(((currentChapter?.index || 0) + 1) / chapters.length * 100)
-              : 0}%
+            {chapters.length > 0
+              ? Math.round((((currentChapter?.index || 0) + 1) / chapters.length) * 100)
+              : 0}
+            %
           </div>
           <button
             onClick={goToNextChapter}
-            disabled={!currentChapter || currentChapter.index >= (chapters.length - 1)}
+            disabled={!currentChapter || currentChapter.index >= chapters.length - 1}
           >
             Next →
           </button>
@@ -194,6 +205,7 @@ export function ReaderScreen(): React.JSX.Element {
               };
 
               await addWord(vocabularyItem);
+              recordWordSaved();
               dismissPopup();
             } catch (error) {
               console.error('Failed to save word:', error);
@@ -202,7 +214,6 @@ export function ReaderScreen(): React.JSX.Element {
           }}
           onKnewIt={() => {
             // For now, just dismiss - could mark word as known in future
-            console.log('Mark word as known:', selectedWord);
             dismissPopup();
           }}
         />
@@ -213,18 +224,27 @@ export function ReaderScreen(): React.JSX.Element {
 
 interface TranslationPopupProps {
   word: ForeignWordData;
+  isSaved?: boolean;
   onDismiss: () => void;
   onSave: () => void;
   onKnewIt?: () => void;
 }
 
-function TranslationPopup({word, onDismiss, onSave, onKnewIt}: TranslationPopupProps): React.JSX.Element {
+function TranslationPopup({
+  word,
+  isSaved,
+  onDismiss,
+  onSave,
+  onKnewIt,
+}: TranslationPopupProps): React.JSX.Element {
   return (
     <div className="translation-popup-overlay" onClick={onDismiss}>
-      <div className="translation-popup" onClick={(e) => e.stopPropagation()}>
+      <div className="translation-popup" onClick={e => e.stopPropagation()}>
         <div className="translation-popup-header">
           <h3>{word.foreignWord}</h3>
-          <button onClick={onDismiss} className="translation-popup-close">✕</button>
+          <button onClick={onDismiss} className="translation-popup-close">
+            ✕
+          </button>
         </div>
         <div className="translation-popup-content">
           <p className="translation-original">{word.originalWord}</p>
@@ -233,10 +253,10 @@ function TranslationPopup({word, onDismiss, onSave, onKnewIt}: TranslationPopupP
           )}
         </div>
         <div className="translation-popup-actions">
-          <button 
+          <button
             onClick={onSave}
             disabled={isSaved}
-            style={{opacity: isSaved ? 0.5 : 1}}
+            className={isSaved ? 'translation-popup-saved' : ''}
           >
             {isSaved ? '✓ Already Saved' : 'Save to Vocabulary'}
           </button>

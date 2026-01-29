@@ -2,22 +2,27 @@
  * Tests for BookDownloadService - Online library search and import
  */
 
-import {BookDownloadService} from '../services/BookDownloadService';
-import RNFS from 'react-native-fs';
-
-// Mock dependencies
-jest.mock('react-native-fs');
-jest.mock('react-native', () => ({
-  Platform: {OS: 'test'},
+// Mock Electron FileSystem and Platform before any imports that use them
+jest.mock('../utils/FileSystem.electron', () => ({
+  getAppDataPath: jest.fn(() => Promise.resolve('/mock/app/data')),
+  writeFile: jest.fn(() => Promise.resolve()),
+  mkdir: jest.fn(() => Promise.resolve()),
+  fileExists: jest.fn(() => Promise.resolve(true)),
+  readDir: jest.fn(() => Promise.resolve([])),
+  unlink: jest.fn(() => Promise.resolve()),
+}));
+jest.mock('../utils/platform.electron', () => ({
+  Platform: {OS: 'linux'},
 }));
 
-// Mock FileSystemService - needs to be mocked before BookDownloadService imports it
-jest.mock('../services/FileSystemService/FileSystemService.web', () => ({
+jest.mock('../services/FileSystemService', () => ({
   FileSystemService: {
     isSupported: jest.fn(() => false),
     initialize: jest.fn(),
   },
 }));
+
+import {BookDownloadService} from '../services/BookDownloadService';
 
 // Mock fetch globally
 global.fetch = jest.fn();
@@ -25,8 +30,9 @@ global.fetch = jest.fn();
 describe('BookDownloadService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    (RNFS.exists as jest.Mock).mockResolvedValue(true);
-    (RNFS.mkdir as jest.Mock).mockResolvedValue(undefined);
+    const {fileExists, mkdir} = require('../utils/FileSystem.electron');
+    (fileExists as jest.Mock).mockResolvedValue(true);
+    (mkdir as jest.Mock).mockResolvedValue(undefined);
   });
 
   describe('searchBooks - Online Library Search', () => {
@@ -115,23 +121,31 @@ describe('BookDownloadService', () => {
         source: 'gutenberg' as const,
       };
 
-      // Mock download
+      // Mock fetch: downloadWithRNFS uses response.body.getReader()
+      const chunk = new Uint8Array(1024);
       (global.fetch as jest.Mock).mockResolvedValue({
         ok: true,
-        arrayBuffer: async () => new ArrayBuffer(1024),
+        headers: new Headers({'content-length': '1024'}),
+        body: {
+          getReader: () => ({
+            read: jest
+              .fn()
+              .mockResolvedValueOnce({done: false, value: chunk})
+              .mockResolvedValueOnce({done: true, value: undefined}),
+          }),
+        },
       });
 
-      (RNFS.writeFile as jest.Mock).mockResolvedValue(undefined);
-      (RNFS.stat as jest.Mock).mockResolvedValue({size: 1024});
+      const {writeFile} = require('../utils/FileSystem.electron');
+      (writeFile as jest.Mock).mockResolvedValue(undefined);
 
       const progressCallback = jest.fn();
 
-      const result = await BookDownloadService.downloadBook(mockSearchResult, {
-        onProgress: progressCallback,
-      });
+      const result = await BookDownloadService.downloadBook(mockSearchResult, progressCallback);
 
       expect(result.success).toBe(true);
-      expect(result.filePath).toBeDefined();
+      expect(result.book).toBeDefined();
+      expect(result.book?.filePath).toBeDefined();
       expect(progressCallback).toHaveBeenCalled();
     });
 
@@ -163,19 +177,26 @@ describe('BookDownloadService', () => {
         source: 'gutenberg' as const,
       };
 
+      const chunk = new Uint8Array(1024);
       (global.fetch as jest.Mock).mockResolvedValue({
         ok: true,
-        arrayBuffer: async () => new ArrayBuffer(1024),
+        headers: new Headers({'content-length': '1024'}),
+        body: {
+          getReader: () => ({
+            read: jest
+              .fn()
+              .mockResolvedValueOnce({done: false, value: chunk})
+              .mockResolvedValueOnce({done: true, value: undefined}),
+          }),
+        },
       });
 
-      (RNFS.writeFile as jest.Mock).mockResolvedValue(undefined);
-      (RNFS.stat as jest.Mock).mockResolvedValue({size: 1024});
+      const {writeFile} = require('../utils/FileSystem.electron');
+      (writeFile as jest.Mock).mockResolvedValue(undefined);
 
       const progressCallback = jest.fn();
 
-      await BookDownloadService.downloadBook(mockSearchResult, {
-        onProgress: progressCallback,
-      });
+      await BookDownloadService.downloadBook(mockSearchResult, progressCallback);
 
       expect(progressCallback).toHaveBeenCalled();
     });
