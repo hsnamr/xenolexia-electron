@@ -140,9 +140,6 @@ This contextual immersion mimics how we naturally acquire language through meani
 
 - Node.js 18+ and npm/yarn
 -n Electron CLI
-- Xcode 15+ (for iOS)
-- Android Studio with SDK 34+ (for Android)
-- CocoaPods (iOS)
 
 ### Installation
 
