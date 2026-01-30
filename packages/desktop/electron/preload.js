@@ -60,6 +60,10 @@ try {
     return ipcRenderer.invoke('db:invoke', method, ...args);
   },
 
+  translateBulk: (words, sourceLanguage, targetLanguage) => {
+    return ipcRenderer.invoke('translation:translateBulk', { words, sourceLanguage, targetLanguage });
+  },
+
   // Directory operations
   readDir: (dirPath) => {
     return ipcRenderer.invoke('file:readDir', dirPath);

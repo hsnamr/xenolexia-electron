@@ -148,13 +148,30 @@ export class DynamicWordDatabase {
       }
     }
 
-    // Batch translate remaining words
+    // Batch translate remaining words (use main-process API in Electron to avoid renderer fetch/CSP issues)
     if (toTranslate.length > 0) {
-      const bulkResult = await this.translationAPI.translateBulk(
-        toTranslate,
-        sourceLanguage,
-        targetLanguage
-      );
+      const win = typeof window !== 'undefined' ? window : (globalThis as any).window;
+      const useMainProcess = win?.electronAPI?.translateBulk;
+      let bulkResult: { translations: Map<string, string>; provider: string; failed: string[] };
+
+      if (useMainProcess) {
+        const raw = await win.electronAPI.translateBulk(
+          toTranslate,
+          sourceLanguage,
+          targetLanguage
+        );
+        bulkResult = {
+          translations: new Map(Object.entries(raw.translations || {})),
+          provider: raw.provider || 'libretranslate',
+          failed: raw.failed || [],
+        };
+      } else {
+        bulkResult = await this.translationAPI.translateBulk(
+          toTranslate,
+          sourceLanguage,
+          targetLanguage
+        );
+      }
 
       for (const [word, translation] of bulkResult.translations) {
         const entry = await this.createAndCacheEntry(

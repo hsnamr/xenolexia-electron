@@ -592,10 +592,9 @@ CREATE TABLE word_list (
 | Turkish | tr | 🇹🇷 | - |
 | Japanese | ja | 🇯🇵 | - |
 | Chinese | zh | 🇨🇳 | - |
-| Korean | ko | 🇰🇷 | - |
+| Korean | ko | 🇰🇵 | - |
 | Arabic | ar | 🇵🇸 | ✅ |
-| Hebrew | he | 🇮🇱 | ✅ |
-| + 12 more... | | | |
+| + 13 more... | | | |
 
 ---
 

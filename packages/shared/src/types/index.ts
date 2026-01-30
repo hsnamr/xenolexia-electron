@@ -30,7 +30,6 @@ export type Language =
   | 'hu' // Hungarian
   | 'ro' // Romanian
   | 'uk' // Ukrainian
-  | 'he' // Hebrew
   | 'hi' // Hindi
   | 'th' // Thai
   | 'vi' // Vietnamese
@@ -81,9 +80,8 @@ export const SUPPORTED_LANGUAGES: LanguageInfo[] = [
   { code: 'uk', name: 'Ukrainian', nativeName: 'Українська', flag: '🇺🇦' },
   { code: 'ja', name: 'Japanese', nativeName: '日本語', flag: '🇯🇵' },
   { code: 'zh', name: 'Chinese', nativeName: '中文', flag: '🇨🇳' },
-  { code: 'ko', name: 'Korean', nativeName: '한국어', flag: '🇰🇷' },
+  { code: 'ko', name: 'Korean', nativeName: '한국어', flag: '🇰🇵' },
   { code: 'ar', name: 'Arabic', nativeName: 'العربية', flag: '🇵🇸', rtl: true },
-  { code: 'he', name: 'Hebrew', nativeName: 'עברית', flag: '🇮🇱', rtl: true },
   { code: 'hi', name: 'Hindi', nativeName: 'हिन्दी', flag: '🇮🇳' },
   { code: 'th', name: 'Thai', nativeName: 'ไทย', flag: '🇹🇭' },
   { code: 'vi', name: 'Vietnamese', nativeName: 'Tiếng Việt', flag: '🇻🇳' },

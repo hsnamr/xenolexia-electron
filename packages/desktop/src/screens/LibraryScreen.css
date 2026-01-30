@@ -351,3 +351,70 @@
   color: #ef4444;
   border-color: #ef4444;
 }
+
+/* Change language modal */
+.change-language-book-title {
+  margin: 0 0 0.5rem 0;
+  font-size: 1rem;
+  color: #374151;
+}
+
+.change-language-current {
+  margin: 0 0 1rem 0;
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.change-language-prompt {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+}
+
+.change-language-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  max-height: 50vh;
+  overflow-y: auto;
+  margin-top: 0.5rem;
+}
+
+.change-language-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 0.9375rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+
+.change-language-option:hover {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+}
+
+.change-language-option[aria-selected='true'] {
+  border-color: #6366f1;
+  background: #eef2ff;
+}
+
+.change-language-flag {
+  font-size: 1.25rem;
+}
+
+.change-language-name {
+  flex: 1;
+}
+
+.change-language-check {
+  color: #6366f1;
+  font-weight: 600;
+}

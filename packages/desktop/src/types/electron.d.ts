@@ -28,6 +28,13 @@ export interface ElectronAPI {
 
   /** Database operations (renderer calls main process) */
   dbInvoke: (method: string, ...args: unknown[]) => Promise<unknown>;
+
+  /** Translation in main process (avoids renderer fetch/CSP) */
+  translateBulk: (
+    words: string[],
+    sourceLanguage: string,
+    targetLanguage: string
+  ) => Promise<{ translations: Record<string, string>; provider: string; failed: string[] }>;
 }
 
 declare global {

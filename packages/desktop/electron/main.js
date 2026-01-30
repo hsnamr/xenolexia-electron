@@ -284,6 +284,39 @@ function setupIpcHandlers() {
     }
     return fn.apply(db, args);
   });
+
+  // Translation API in main process (avoids renderer fetch/CSP issues)
+  const ISO_LANGS = { en: 'en', el: 'el', es: 'es', fr: 'fr', de: 'de', it: 'it', pt: 'pt', ru: 'ru', ja: 'ja', zh: 'zh', ko: 'ko', ar: 'ar' };
+  ipcMain.handle('translation:translateBulk', async (event, { words, sourceLanguage, targetLanguage }) => {
+    const source = ISO_LANGS[sourceLanguage] || sourceLanguage;
+    const target = ISO_LANGS[targetLanguage] || targetLanguage;
+    const translations = {};
+    const failed = [];
+    const mirrors = ['https://libretranslate.com', 'https://translate.argosopentech.com'];
+    for (const word of words) {
+      let done = false;
+      for (const baseUrl of mirrors) {
+        try {
+          const res = await fetch(`${baseUrl}/translate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ q: word, source, target, format: 'text' }),
+          });
+          if (!res.ok) continue;
+          const data = await res.json();
+          if (data.translatedText != null) {
+            translations[word] = data.translatedText;
+            done = true;
+            break;
+          }
+        } catch (err) {
+          continue;
+        }
+      }
+      if (!done) failed.push(word);
+    }
+    return { translations, provider: 'libretranslate', failed };
+  });
 }
 
 function createTray() {

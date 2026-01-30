@@ -6,6 +6,7 @@ import React, {useState, useCallback, useEffect} from 'react';
 import {useNavigate, useLocation} from 'react-router-dom';
 import {useLibraryStore} from '@xenolexia/shared/stores/libraryStore';
 import type {Book} from '@xenolexia/shared/types';
+import {SUPPORTED_LANGUAGES, getLanguageInfo} from '@xenolexia/shared/types';
 import {Button, Card, PressableCard, Input, SearchInput} from '../components/ui';
 import {importBookFromFile} from '../services/ElectronImportService';
 import './LibraryScreen.css';
@@ -18,6 +19,7 @@ export function LibraryScreen(): React.JSX.Element {
   const [isImporting, setIsImporting] = useState(false);
   const [importProgress, setImportProgress] = useState<string>('');
   const [detailBook, setDetailBook] = useState<Book | null>(null);
+  const [changeLanguageBook, setChangeLanguageBook] = useState<Book | null>(null);
 
   useEffect(() => {
     initialize();
@@ -96,39 +98,28 @@ export function LibraryScreen(): React.JSX.Element {
     navigate('/discover');
   }, [navigate]);
 
-  const handleChangeLanguage = useCallback(
-    async (book: Book) => {
-      const {SUPPORTED_LANGUAGES} = await import('@xenolexia/shared/types');
-      const currentLang = SUPPORTED_LANGUAGES.find(l => l.code === book.languagePair.targetLanguage);
-      const langOptions = SUPPORTED_LANGUAGES
-        .filter(l => l.code !== book.languagePair.sourceLanguage)
-        .map(l => `${l.flag} ${l.name} (${l.code})`)
-        .join('\n');
-      
-      const selection = window.prompt(
-        `Change target language for "${book.title}"?\n\nCurrent: ${currentLang?.flag} ${currentLang?.name}\n\nAvailable languages:\n${langOptions}\n\nEnter language code:`,
-        book.languagePair.targetLanguage
-      );
-      
-      if (selection && selection !== book.languagePair.targetLanguage) {
-        const isValid = SUPPORTED_LANGUAGES.some(l => l.code === selection);
-        if (isValid) {
-          try {
-            await updateBook(book.id, {
-              languagePair: {
-                ...book.languagePair,
-                targetLanguage: selection as any,
-              },
-            });
-            await refreshBooks();
-            alert(`Target language changed to ${selection}`);
-          } catch (error) {
-            console.error('Failed to change language:', error);
-            alert('Failed to change language');
-          }
-        } else {
-          alert('Invalid language code');
-        }
+  const handleOpenChangeLanguage = useCallback((book: Book) => {
+    setChangeLanguageBook(book);
+  }, []);
+
+  const handleConfirmChangeLanguage = useCallback(
+    async (book: Book, targetLanguageCode: string) => {
+      if (targetLanguageCode === book.languagePair.targetLanguage) {
+        setChangeLanguageBook(null);
+        return;
+      }
+      try {
+        await updateBook(book.id, {
+          languagePair: {
+            ...book.languagePair,
+            targetLanguage: targetLanguageCode as Book['languagePair']['targetLanguage'],
+          },
+        });
+        await refreshBooks();
+        setChangeLanguageBook(null);
+      } catch (error) {
+        console.error('Failed to change language:', error);
+        setChangeLanguageBook(null);
       }
     },
     [updateBook, refreshBooks]
@@ -253,12 +244,20 @@ export function LibraryScreen(): React.JSX.Element {
               book={book}
               onPress={() => handleBookPress(book)}
               onDelete={() => handleDeleteBook(book.id)}
-              onChangeLanguage={handleChangeLanguage}
+              onChangeLanguage={handleOpenChangeLanguage}
               onForgetProgress={handleForgetProgress}
               onAbout={handleBookAbout}
             />
           ))}
         </div>
+      )}
+
+      {changeLanguageBook && (
+        <ChangeLanguageModal
+          book={changeLanguageBook}
+          onClose={() => setChangeLanguageBook(null)}
+          onSelect={(targetLanguageCode) => handleConfirmChangeLanguage(changeLanguageBook, targetLanguageCode)}
+        />
       )}
 
       {detailBook && (
@@ -273,8 +272,8 @@ export function LibraryScreen(): React.JSX.Element {
             await handleDeleteBook(detailBook.id);
             setDetailBook(null);
           }}
-          onChangeLanguage={async () => {
-            await handleChangeLanguage(detailBook);
+          onChangeLanguage={() => {
+            handleOpenChangeLanguage(detailBook);
             setDetailBook(null);
           }}
           onForgetProgress={async () => {
@@ -469,6 +468,68 @@ function BookCard({book, onPress, onDelete, onChangeLanguage, onForgetProgress, 
   );
 }
 
+interface ChangeLanguageModalProps {
+  book: Book;
+  onClose: () => void;
+  onSelect: (targetLanguageCode: string) => void;
+}
+
+function ChangeLanguageModal({
+  book,
+  onClose,
+  onSelect,
+}: ChangeLanguageModalProps): React.JSX.Element {
+  const currentTarget = getLanguageInfo(book.languagePair.targetLanguage);
+  const sourceLang = getLanguageInfo(book.languagePair.sourceLanguage);
+  const options = SUPPORTED_LANGUAGES.filter(
+    (l) => l.code !== book.languagePair.sourceLanguage
+  );
+
+  return (
+    <div className="book-detail-overlay" onClick={onClose}>
+      <div className="book-detail-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="book-detail-header">
+          <h2>Change target language</h2>
+          <button type="button" className="book-detail-close" onClick={onClose}>
+            ✕
+          </button>
+        </div>
+        <div className="book-detail-body">
+          <p className="change-language-book-title">"{book.title}"</p>
+          <p className="change-language-current">
+            Current: {sourceLang?.flag} {sourceLang?.name} → {currentTarget?.flag}{' '}
+            {currentTarget?.name}
+          </p>
+          <p className="change-language-prompt">Choose a target language:</p>
+          <div className="change-language-list" role="listbox">
+            {options.map((lang) => (
+              <button
+                key={lang.code}
+                type="button"
+                className="change-language-option"
+                onClick={() => onSelect(lang.code)}
+                role="option"
+                aria-selected={lang.code === book.languagePair.targetLanguage}
+              >
+                <span className="change-language-flag">{lang.flag}</span>
+                <span className="change-language-name">{lang.name}</span>
+                {lang.code === book.languagePair.targetLanguage && (
+                  <span className="change-language-check"> ✓</span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="book-detail-actions">
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface BookContextMenuProps {
   x: number;
   y: number;
@@ -530,8 +591,8 @@ function BookContextMenu({x, y, onAction, onClose}: BookContextMenuProps): React
 function getLanguageFlag(lang: string): string {
   const flags: Record<string, string> = {
     el: '🇬🇷', es: '🇪🇸', fr: '🇫🇷', de: '🇩🇪', it: '🇮🇹',
-    pt: '🇵🇹', ru: '🇷🇺', ja: '🇯🇵', zh: '🇨🇳', ko: '🇰🇷',
-    ar: '🇸🇦', en: '🇬🇧',
+    pt: '🇵🇹', ru: '🇷🇺', ja: '🇯🇵', zh: '🇨🇳', ko: '🇰🇵',
+    ar: '🇵🇸', en: '🇬🇧',
   };
   return flags[lang] || '🌐';
 }

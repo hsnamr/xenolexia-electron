@@ -19,8 +19,8 @@ export const SUPPORTED_LANGUAGES = {
   ru: {name: 'Russian', nativeName: 'Русский', flag: '🇷🇺', rtl: false},
   ja: {name: 'Japanese', nativeName: '日本語', flag: '🇯🇵', rtl: false},
   zh: {name: 'Chinese', nativeName: '中文', flag: '🇨🇳', rtl: false},
-  ko: {name: 'Korean', nativeName: '한국어', flag: '🇰🇷', rtl: false},
-  ar: {name: 'Arabic', nativeName: 'العربية', flag: '🇸🇦', rtl: true},
+  ko: {name: 'Korean', nativeName: '한국어', flag: '🇰🇵', rtl: false},
+  ar: {name: 'Arabic', nativeName: 'العربية', flag: '🇵🇸', rtl: true},
 } as const;
 
 /**
