@@ -204,6 +204,9 @@ export function ReaderScreen(): React.JSX.Element {
             ref={epubReaderRef}
             book={book}
             onLocationChange={handleEpubLocationChange}
+            onWordClick={handleWordClick}
+            onWordHover={handleWordHover}
+            onWordHoverEnd={handleWordHoverEnd}
           />
         ) : isLoadingChapter ? (
           <div className="reader-loading-chapter">Loading chapter...</div>

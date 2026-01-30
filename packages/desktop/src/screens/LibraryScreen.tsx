@@ -477,27 +477,49 @@ interface BookContextMenuProps {
 }
 
 function BookContextMenu({x, y, onAction, onClose}: BookContextMenuProps): React.JSX.Element {
+  // Use onMouseDown so the action runs before document click-outside closes the menu
+  const fire = (action: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onAction(action, e);
+  };
   return (
     <div
       className="book-context-menu"
       style={{left: `${x}px`, top: `${y}px`}}
       onClick={(e) => e.stopPropagation()}
     >
-      <button className="context-menu-item" onClick={(e) => onAction('change-language', e)}>
+      <button
+        type="button"
+        className="context-menu-item"
+        onMouseDown={(e) => fire('change-language', e)}
+      >
         <span className="context-menu-icon">🌍</span>
         <span>Change Target Language</span>
       </button>
-      <button className="context-menu-item" onClick={(e) => onAction('forget-progress', e)}>
+      <button
+        type="button"
+        className="context-menu-item"
+        onMouseDown={(e) => fire('forget-progress', e)}
+      >
         <span className="context-menu-icon">🔄</span>
         <span>Forget Progress</span>
       </button>
       <div className="context-menu-divider" />
-      <button className="context-menu-item" onClick={(e) => onAction('about', e)}>
+      <button
+        type="button"
+        className="context-menu-item"
+        onMouseDown={(e) => fire('about', e)}
+      >
         <span className="context-menu-icon">ℹ️</span>
         <span>About</span>
       </button>
       <div className="context-menu-divider" />
-      <button className="context-menu-item context-menu-item-danger" onClick={(e) => onAction('delete', e)}>
+      <button
+        type="button"
+        className="context-menu-item context-menu-item-danger"
+        onMouseDown={(e) => fire('delete', e)}
+      >
         <span className="context-menu-icon">🗑️</span>
         <span>Delete Book</span>
       </button>

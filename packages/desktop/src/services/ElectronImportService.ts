@@ -10,6 +10,7 @@ import {
 import type {ImportProgress} from '@xenolexia/shared/services/ImportService';
 import {openFileDialog, readFileAsArrayBuffer, getAppDataPath, writeFileToAppData} from './ElectronFileService';
 import {useLibraryStore} from '@xenolexia/shared/stores/libraryStore';
+import {useUserStore} from '@xenolexia/shared/stores/userStore';
 import type {Book} from '@xenolexia/shared/types';
 import {v4 as uuidv4} from 'uuid';
 
@@ -126,6 +127,13 @@ export async function importBookFromFile(
     const format = fileExtension.toLowerCase() === '.epub' ? 'epub' :
                    fileExtension.toLowerCase() === '.mobi' ? 'mobi' : 'txt';
 
+    // Use default language and reader settings from preferences (Settings / Onboarding)
+    const preferences = useUserStore.getState().preferences;
+    const sourceLanguage = metadata.language || preferences.defaultSourceLanguage || 'en';
+    const targetLanguage = preferences.defaultTargetLanguage || 'el';
+    const proficiencyLevel = preferences.defaultProficiencyLevel || 'beginner';
+    const wordDensity = preferences.defaultWordDensity ?? 0.3;
+
     // Create Book object
     const book: Book = {
       id: bookId,
@@ -136,16 +144,16 @@ export async function importBookFromFile(
       fileSize: file.size,
       coverPath: coverPath,
       languagePair: {
-        sourceLanguage: metadata.language || 'en',
-        targetLanguage: 'el', // Default, can be changed in settings
+        sourceLanguage,
+        targetLanguage,
       },
       addedAt: new Date(),
       lastReadAt: null,
       progress: 0,
       totalChapters: 0,
       currentChapter: 0,
-      proficiencyLevel: 'beginner',
-      wordDensity: 0.3,
+      proficiencyLevel,
+      wordDensity,
     };
 
     // Add book to library

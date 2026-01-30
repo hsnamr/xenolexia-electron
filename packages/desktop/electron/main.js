@@ -379,6 +379,16 @@ function createMenu(win) {
     {
       label: 'View',
       submenu: [
+        {
+          label: 'My Library',
+          accelerator: 'CmdOrCtrl+1',
+          click: () => {
+            if (mainWindow) {
+              mainWindow.webContents.send('menu-my-library');
+            }
+          },
+        },
+        {type: 'separator'},
         {role: 'toggleDevTools', label: 'Toggle Developer Tools'},
         {type: 'separator'},
         {role: 'resetZoom', label: 'Actual Size'},

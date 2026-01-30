@@ -88,6 +88,9 @@ function MenuActionListener({children}: {children: React.ReactNode}): React.JSX.
         case 'menu-about':
           navigate('/about');
           break;
+        case 'menu-my-library':
+          navigate('/');
+          break;
         default:
           break;
       }

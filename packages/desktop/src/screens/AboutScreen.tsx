@@ -14,7 +14,7 @@ const LINKS = {
   privacy: 'https://xenolexia.app/privacy',
   terms: 'https://xenolexia.app/terms',
   support: 'mailto:support@xenolexia.app',
-  github: 'https://github.com/xenolexia/xenolexia-react',
+  github: 'https://github.com/hsnamr/xenolexia-electron',
 };
 
 const ACKNOWLEDGMENTS = [

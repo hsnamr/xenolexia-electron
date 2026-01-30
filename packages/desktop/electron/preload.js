@@ -19,6 +19,7 @@ try {
     ipcRenderer.on('menu-search-books', (e) => callback(e, 'menu-search-books'));
     ipcRenderer.on('menu-statistics', (e) => callback(e, 'menu-statistics'));
     ipcRenderer.on('menu-settings', (e) => callback(e, 'menu-settings'));
+    ipcRenderer.on('menu-my-library', (e) => callback(e, 'menu-my-library'));
   },
 
   // File dialog
