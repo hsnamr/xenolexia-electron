@@ -14,8 +14,8 @@
   "dependencies": {
     "@lingo-reader/mobi-parser": "^0.4.5",
     "@tanstack/react-query": "^5.51.1",
-    "better-sqlite3": "^11.0.0",
     "date-fns": "^3.6.0",
+    "lowdb": "^7.0.1",
     "electron-store": "^10.0.0",
     "epubjs": "^0.3.93",
     "jszip": "^3.10.1",
@@ -24,7 +24,6 @@
     "zustand": "^4.5.4"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.0",
     "@types/jest": "^30.0.0",
     "@types/lodash": "^4.17.6",
     "@types/react": "^18.2.79",

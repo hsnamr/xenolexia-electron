@@ -1,10 +1,8 @@
 /**
- * Database Service - SQLite database connection and management
+ * Database Service - Local database connection and management
  *
- * Uses better-sqlite3 for Electron (synchronous API).
- * Provides connection management, migrations, and query helpers.
- *
- * This file exports the Electron version. For React Native, use a different implementation.
+ * Uses LowDB (JSON file) for Electron (no native modules).
+ * Provides the same API for repositories; renderer uses IPC stub.
  */
 
 // Export Electron version (single source; no duplicate implementation)

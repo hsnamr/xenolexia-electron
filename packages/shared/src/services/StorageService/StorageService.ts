@@ -122,14 +122,19 @@ export class StorageService {
 
   static async savePreferences(preferences: UserPreferences): Promise<void> {
     await this.initialize();
-    // TODO: Implement using AsyncStorage or SQLite
-    console.log('Saving preferences');
+    await databaseService.execute(
+      'INSERT OR REPLACE INTO preferences (key, value) VALUES (?, ?)',
+      ['userPreferences', JSON.stringify(preferences)],
+    );
   }
 
   static async loadPreferences(): Promise<UserPreferences | null> {
     await this.initialize();
-    // TODO: Implement
-    return null;
+    const row = await databaseService.getOne<{ value: string }>(
+      'SELECT value FROM preferences WHERE key = ?',
+      ['userPreferences'],
+    );
+    return row?.value ? JSON.parse(row.value) : null;
   }
 
   // ============================================================================

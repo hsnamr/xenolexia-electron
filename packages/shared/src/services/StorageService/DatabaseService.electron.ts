@@ -1,12 +1,10 @@
 /**
- * Database Service - Electron version using better-sqlite3
+ * Database Service - Electron version using LowDB (JSON file)
  *
- * Uses better-sqlite3 for SQLite operations (synchronous API).
- * Provides connection management, migrations, and query helpers.
+ * Uses LowDB for persistence (no native modules). Same public API as before
+ * so repositories and IPC remain unchanged.
  */
 
-import Database from 'better-sqlite3';
-import type { RunResult } from 'better-sqlite3';
 import { getAppDataPath } from '../../utils/FileSystem.electron';
 
 // ============================================================================
@@ -26,464 +24,6 @@ export interface MigrationDefinition {
   down?: string;
 }
 
-// ============================================================================
-// Database Configuration
-// ============================================================================
-
-const DATABASE_NAME = 'xenolexia.db';
-
-// ============================================================================
-// Database Service Class
-// ============================================================================
-
-export class DatabaseService {
-  private db: Database.Database | null = null;
-  private isInitialized: boolean = false;
-  private initPromise: Promise<void> | null = null;
-  private dbPath: string | null = null;
-
-  /**
-   * Initialize the database connection
-   */
-  async initialize(): Promise<void> {
-    // Return existing promise if initialization is in progress
-    if (this.initPromise) {
-      return this.initPromise;
-    }
-
-    // Already initialized
-    if (this.isInitialized && this.db) {
-      return;
-    }
-
-    this.initPromise = this.doInitialize();
-
-    try {
-      await this.initPromise;
-    } finally {
-      this.initPromise = null;
-    }
-  }
-
-  /**
-   * Perform actual initialization
-   */
-  private async doInitialize(): Promise<void> {
-    try {
-      // Get app data path for Electron
-      const appDataPath = await getAppDataPath();
-      this.dbPath = `${appDataPath}/${DATABASE_NAME}`;
-
-      // Open database (better-sqlite3 is synchronous)
-      this.db = new Database(this.dbPath);
-
-      // Enable WAL mode for better concurrency
-      this.db.pragma('journal_mode = WAL');
-
-      // Enable foreign keys
-      this.db.pragma('foreign_keys = ON');
-
-      console.log('[Database] Connected to SQLite database:', this.dbPath);
-
-      // Run migrations
-      this.runMigrations();
-
-      this.isInitialized = true;
-      console.log('[Database] Initialization complete');
-    } catch (error) {
-      console.error('[Database] Initialization failed:', error);
-      this.db = null;
-      this.isInitialized = false;
-      throw error;
-    }
-  }
-
-  /**
-   * Get database instance (initializes if needed)
-   */
-  async getDatabase(): Promise<Database.Database> {
-    await this.initialize();
-    if (!this.db) {
-      throw new Error('Database not initialized');
-    }
-    return this.db;
-  }
-
-  /**
-   * Get database instance synchronously (for better-sqlite3)
-   */
-  private getDatabaseSync(): Database.Database {
-    if (!this.db) {
-      throw new Error('Database not initialized. Call initialize() first.');
-    }
-    return this.db;
-  }
-
-  /**
-   * Check if database is ready
-   */
-  isReady(): boolean {
-    return this.isInitialized && this.db !== null;
-  }
-
-  /**
-   * Close database connection
-   */
-  async close(): Promise<void> {
-    if (this.db) {
-      this.db.close();
-      this.db = null;
-      this.isInitialized = false;
-      console.log('[Database] Connection closed');
-    }
-  }
-
-  // ============================================================================
-  // Query Helpers
-  // ============================================================================
-
-  /**
-   * Execute a SQL query
-   */
-  async execute<T = Record<string, unknown>>(
-    sql: string,
-    params: (string | number | null)[] = [],
-  ): Promise<QueryResult<T>> {
-    const db = this.getDatabaseSync();
-
-    try {
-      // Check if it's a SELECT query
-      const trimmedSql = sql.trim().toUpperCase();
-      if (trimmedSql.startsWith('SELECT') || trimmedSql.startsWith('PRAGMA')) {
-        const stmt = db.prepare(sql);
-        const rows = stmt.all(...params) as T[];
-
-        return {
-          rows,
-          rowsAffected: 0,
-        };
-      } else {
-        // INSERT, UPDATE, DELETE, etc.
-        const stmt = db.prepare(sql);
-        const result = stmt.run(...params) as RunResult;
-
-        return {
-          rows: [],
-          rowsAffected: result.changes,
-          insertId: result.lastInsertRowid ? Number(result.lastInsertRowid) : undefined,
-        };
-      }
-    } catch (error) {
-      console.error('[Database] Query failed:', sql, error);
-      throw error;
-    }
-  }
-
-  /**
-   * Execute multiple SQL statements in a transaction
-   * Note: better-sqlite3 transactions are synchronous, so we execute all statements synchronously
-   */
-  async transaction<T>(
-    callback: (tx: Transaction) => Promise<T>,
-  ): Promise<T> {
-    const db = this.getDatabaseSync();
-
-    // For better-sqlite3, we need to collect all operations first
-    // Since transactions are synchronous, we'll execute them all at once
-    const operations: Array<{sql: string; params: any[]}> = [];
-    let result: T | null = null;
-    let error: Error | null = null;
-
-    // Create a transaction wrapper that collects operations
-    const tx: Transaction = {
-      executeSql: (sql: string, params: any[], success?: (tx: any, result: any) => void, err?: (tx: any, e: any) => boolean) => {
-        try {
-          const queryResult = this.executeSync(sql, params);
-          operations.push({ sql, params });
-          if (success) {
-            success(tx, queryResult);
-          }
-          return queryResult;
-        } catch (e) {
-          if (err) {
-            const handled = err(tx, e);
-            if (!handled) {
-              error = e instanceof Error ? e : new Error(String(e));
-            }
-          } else {
-            error = e instanceof Error ? e : new Error(String(e));
-          }
-          throw e;
-        }
-      },
-    };
-
-    // Execute callback to collect operations
-    try {
-      result = await callback(tx);
-    } catch (e) {
-      error = e instanceof Error ? e : new Error(String(e));
-    }
-
-    // If there was an error, reject
-    if (error) {
-      throw error;
-    }
-
-    // Execute all operations in a single transaction
-    if (operations.length > 0) {
-      const transaction = db.transaction(() => {
-        for (const op of operations) {
-          const stmt = db.prepare(op.sql);
-          stmt.run(...op.params);
-        }
-      });
-      transaction();
-    }
-
-    return result as T;
-  }
-
-  /**
-   * Execute a batch of SQL statements
-   */
-  async executeBatch(
-    statements: Array<{sql: string; params?: (string | number | null)[]}>,
-  ): Promise<void> {
-    const db = this.getDatabaseSync();
-
-    const transaction = db.transaction(() => {
-      for (const statement of statements) {
-        const stmt = db.prepare(statement.sql);
-        stmt.run(...(statement.params || []));
-      }
-    });
-
-    transaction();
-  }
-
-  /**
-   * Get a single row
-   */
-  async getOne<T = Record<string, unknown>>(
-    sql: string,
-    params: (string | number | null)[] = [],
-  ): Promise<T | null> {
-    const db = this.getDatabaseSync();
-    const stmt = db.prepare(sql);
-    const row = stmt.get(...params) as T | undefined;
-    return row || null;
-  }
-
-  /**
-   * Get all rows
-   */
-  async getAll<T = Record<string, unknown>>(
-    sql: string,
-    params: (string | number | null)[] = [],
-  ): Promise<T[]> {
-    const db = this.getDatabaseSync();
-    const stmt = db.prepare(sql);
-    return stmt.all(...params) as T[];
-  }
-
-  /**
-   * Insert a row and return the insert ID
-   */
-  async insert(
-    table: string,
-    data: Record<string, string | number | null>,
-  ): Promise<number | undefined> {
-    const columns = Object.keys(data);
-    const values = Object.values(data);
-    const placeholders = columns.map(() => '?').join(', ');
-
-    const sql = `INSERT INTO ${table} (${columns.join(', ')}) VALUES (${placeholders})`;
-    const result = await this.execute(sql, values);
-
-    return result.insertId;
-  }
-
-  /**
-   * Update rows
-   */
-  async update(
-    table: string,
-    data: Record<string, string | number | null>,
-    where: string,
-    whereParams: (string | number | null)[] = [],
-  ): Promise<number> {
-    const setClause = Object.keys(data)
-      .map((key) => `${key} = ?`)
-      .join(', ');
-    const values = Object.values(data);
-
-    const sql = `UPDATE ${table} SET ${setClause} WHERE ${where}`;
-    const result = await this.execute(sql, [...values, ...whereParams]);
-
-    return result.rowsAffected;
-  }
-
-  /**
-   * Delete rows
-   */
-  async delete(
-    table: string,
-    where: string,
-    whereParams: (string | number | null)[] = [],
-  ): Promise<number> {
-    const sql = `DELETE FROM ${table} WHERE ${where}`;
-    const result = await this.execute(sql, whereParams);
-
-    return result.rowsAffected;
-  }
-
-  // ============================================================================
-  // Migrations
-  // ============================================================================
-
-  /**
-   * Run database migrations
-   */
-  private runMigrations(): void {
-    const db = this.getDatabaseSync();
-
-    // Create migrations table if it doesn't exist
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS _migrations (
-        version INTEGER PRIMARY KEY,
-        description TEXT,
-        applied_at INTEGER NOT NULL
-      )
-    `);
-
-    // Get current version
-    const stmt = db.prepare('SELECT MAX(version) as version FROM _migrations');
-    const current = stmt.get() as {version: number} | undefined;
-    const currentVersion = current?.version ?? 0;
-
-    console.log(`[Database] Current version: ${currentVersion}`);
-
-    // Get pending migrations
-    const pendingMigrations = MIGRATIONS.filter(
-      (m) => m.version > currentVersion,
-    ).sort((a, b) => a.version - b.version);
-
-    if (pendingMigrations.length === 0) {
-      console.log('[Database] No pending migrations');
-      return;
-    }
-
-    // Run pending migrations in a transaction
-    const transaction = db.transaction(() => {
-      for (const migration of pendingMigrations) {
-        console.log(
-          `[Database] Running migration ${migration.version}: ${migration.description}`,
-        );
-
-        try {
-          // Execute migration SQL
-          db.exec(migration.up);
-
-          // Record migration
-          const insertStmt = db.prepare(
-            'INSERT INTO _migrations (version, description, applied_at) VALUES (?, ?, ?)',
-          );
-          insertStmt.run(migration.version, migration.description, Date.now());
-
-          console.log(`[Database] Migration ${migration.version} complete`);
-        } catch (error) {
-          console.error(`[Database] Migration ${migration.version} failed:`, error);
-          throw error;
-        }
-      }
-    });
-
-    transaction();
-
-    console.log('[Database] All migrations complete');
-  }
-
-  /**
-   * Get current schema version
-   */
-  async getSchemaVersion(): Promise<number> {
-    try {
-      const result = await this.getOne<{version: number}>(
-        'SELECT MAX(version) as version FROM _migrations',
-      );
-      return result?.version ?? 0;
-    } catch {
-      return 0;
-    }
-  }
-
-  // ============================================================================
-  // Utility Methods
-  // ============================================================================
-
-  /**
-   * Execute query synchronously (internal use)
-   */
-  private executeSync<T = Record<string, unknown>>(
-    sql: string,
-    params: (string | number | null)[] = [],
-  ): QueryResult<T> {
-    const db = this.getDatabaseSync();
-
-    const trimmedSql = sql.trim().toUpperCase();
-    if (trimmedSql.startsWith('SELECT') || trimmedSql.startsWith('PRAGMA')) {
-      const stmt = db.prepare(sql);
-      const rows = stmt.all(...params) as T[];
-
-      return {
-        rows,
-        rowsAffected: 0,
-      };
-    } else {
-      const stmt = db.prepare(sql);
-      const result = stmt.run(...params) as RunResult;
-
-      return {
-        rows: [],
-        rowsAffected: result.changes,
-        insertId: result.lastInsertRowid ? Number(result.lastInsertRowid) : undefined,
-      };
-    }
-  }
-
-  /**
-   * Check if a table exists
-   */
-  async tableExists(tableName: string): Promise<boolean> {
-    const result = await this.getOne<{name: string}>(
-      "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
-      [tableName],
-    );
-    return result !== null;
-  }
-
-  /**
-   * Get table info (columns)
-   */
-  async getTableInfo(tableName: string): Promise<Array<{name: string; type: string}>> {
-    return this.getAll(`PRAGMA table_info(${tableName})`);
-  }
-
-  /**
-   * Vacuum database (optimize storage)
-   */
-  async vacuum(): Promise<void> {
-    const db = this.getDatabaseSync();
-    db.exec('VACUUM');
-    console.log('[Database] Vacuum complete');
-  }
-}
-
-// ============================================================================
-// Transaction Interface (for compatibility)
-// ============================================================================
-
 interface Transaction {
   executeSql: (
     sql: string,
@@ -493,121 +33,666 @@ interface Transaction {
   ) => any;
 }
 
-// ============================================================================
-// Migrations Definition
-// ============================================================================
+interface LowDBData {
+  books: Record<string, unknown>[];
+  vocabulary: Record<string, unknown>[];
+  reading_sessions: Record<string, unknown>[];
+  preferences: Record<string, string>;
+  word_list: Record<string, unknown>[];
+  _migrations: { version: number; description?: string; applied_at?: number }[];
+}
 
-const MIGRATIONS: MigrationDefinition[] = [
-  {
-    version: 1,
-    description: 'Initial schema',
-    up: `
-      -- Books table
-      CREATE TABLE IF NOT EXISTS books (
-        id TEXT PRIMARY KEY,
-        title TEXT NOT NULL,
-        author TEXT,
-        description TEXT,
-        cover_path TEXT,
-        file_path TEXT NOT NULL,
-        format TEXT NOT NULL,
-        file_size INTEGER DEFAULT 0,
-        added_at INTEGER NOT NULL,
-        last_read_at INTEGER,
-        progress REAL DEFAULT 0,
-        current_location TEXT,
-        current_chapter INTEGER DEFAULT 0,
-        total_chapters INTEGER DEFAULT 0,
-        current_page INTEGER DEFAULT 0,
-        total_pages INTEGER DEFAULT 0,
-        reading_time_minutes INTEGER DEFAULT 0,
-        source_lang TEXT NOT NULL,
-        target_lang TEXT NOT NULL,
-        proficiency TEXT NOT NULL,
-        word_density REAL DEFAULT 0.3,
-        source_url TEXT,
-        is_downloaded INTEGER DEFAULT 1
-      );
+type LowDBInstance = {
+  data: LowDBData;
+  read: () => Promise<void>;
+  write: () => Promise<void>;
+  update: (fn: (data: LowDBData) => void) => Promise<void>;
+};
 
-      -- Vocabulary table
-      CREATE TABLE IF NOT EXISTS vocabulary (
-        id TEXT PRIMARY KEY,
-        source_word TEXT NOT NULL,
-        target_word TEXT NOT NULL,
-        source_lang TEXT NOT NULL,
-        target_lang TEXT NOT NULL,
-        context_sentence TEXT,
-        book_id TEXT,
-        book_title TEXT,
-        added_at INTEGER NOT NULL,
-        last_reviewed_at INTEGER,
-        review_count INTEGER DEFAULT 0,
-        ease_factor REAL DEFAULT 2.5,
-        interval INTEGER DEFAULT 0,
-        status TEXT DEFAULT 'new',
-        FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE SET NULL
-      );
+const DEFAULT_DATA: LowDBData = {
+  books: [],
+  vocabulary: [],
+  reading_sessions: [],
+  preferences: {},
+  word_list: [],
+  _migrations: [],
+};
 
-      -- Reading sessions table
-      CREATE TABLE IF NOT EXISTS reading_sessions (
-        id TEXT PRIMARY KEY,
-        book_id TEXT NOT NULL,
-        started_at INTEGER NOT NULL,
-        ended_at INTEGER,
-        pages_read INTEGER DEFAULT 0,
-        words_revealed INTEGER DEFAULT 0,
-        words_saved INTEGER DEFAULT 0,
-        duration INTEGER DEFAULT 0,
-        FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE
-      );
-
-      -- User preferences table
-      CREATE TABLE IF NOT EXISTS preferences (
-        key TEXT PRIMARY KEY,
-        value TEXT NOT NULL,
-        updated_at INTEGER NOT NULL
-      );
-
-      -- Word list table (populated from bundled assets)
-      CREATE TABLE IF NOT EXISTS word_list (
-        id TEXT PRIMARY KEY,
-        source_word TEXT NOT NULL,
-        target_word TEXT NOT NULL,
-        source_lang TEXT NOT NULL,
-        target_lang TEXT NOT NULL,
-        proficiency TEXT NOT NULL,
-        frequency_rank INTEGER,
-        part_of_speech TEXT,
-        variants TEXT,
-        pronunciation TEXT
-      );
-
-      -- Create indexes for faster queries
-      CREATE INDEX IF NOT EXISTS idx_books_added ON books(added_at);
-      CREATE INDEX IF NOT EXISTS idx_books_last_read ON books(last_read_at);
-      CREATE INDEX IF NOT EXISTS idx_vocabulary_book ON vocabulary(book_id);
-      CREATE INDEX IF NOT EXISTS idx_vocabulary_status ON vocabulary(status);
-      CREATE INDEX IF NOT EXISTS idx_vocabulary_source ON vocabulary(source_word);
-      CREATE INDEX IF NOT EXISTS idx_vocabulary_added ON vocabulary(added_at);
-      CREATE INDEX IF NOT EXISTS idx_word_list_source ON word_list(source_word);
-      CREATE INDEX IF NOT EXISTS idx_word_list_langs ON word_list(source_lang, target_lang);
-      CREATE INDEX IF NOT EXISTS idx_word_list_proficiency ON word_list(proficiency);
-      CREATE INDEX IF NOT EXISTS idx_reading_sessions_book ON reading_sessions(book_id);
-      CREATE INDEX IF NOT EXISTS idx_reading_sessions_started ON reading_sessions(started_at);
-    `,
-    down: `
-      DROP TABLE IF EXISTS reading_sessions;
-      DROP TABLE IF EXISTS vocabulary;
-      DROP TABLE IF EXISTS word_list;
-      DROP TABLE IF EXISTS preferences;
-      DROP TABLE IF EXISTS books;
-    `,
-  },
-];
+const DATABASE_FILE = 'xenolexia.json';
 
 // ============================================================================
-// Singleton Export
+// Database Service Class
 // ============================================================================
+
+export class DatabaseService {
+  private db: LowDBInstance | null = null;
+  private isInitialized = false;
+  private initPromise: Promise<void> | null = null;
+  private dbPath: string | null = null;
+
+  async initialize(): Promise<void> {
+    if (this.initPromise) return this.initPromise;
+    if (this.isInitialized && this.db) return;
+
+    this.initPromise = this.doInitialize();
+    try {
+      await this.initPromise;
+    } finally {
+      this.initPromise = null;
+    }
+  }
+
+  private async doInitialize(): Promise<void> {
+    try {
+      let appDataPath: string;
+      try {
+        const { app } = require('electron');
+        appDataPath = app.getPath('userData');
+      } catch {
+        appDataPath = await getAppDataPath();
+      }
+      this.dbPath = `${appDataPath}/${DATABASE_FILE}`;
+
+      const { JSONFilePreset } = await import('lowdb/node');
+      this.db = (await JSONFilePreset(this.dbPath, DEFAULT_DATA)) as unknown as LowDBInstance;
+      await this.db.read();
+      if (!this.db.data._migrations || this.db.data._migrations.length === 0) {
+        this.db.data._migrations = [{ version: 1, applied_at: Date.now() }];
+        await this.db.write();
+      }
+      this.isInitialized = true;
+      console.log('[Database] LowDB initialized:', this.dbPath);
+    } catch (error) {
+      console.error('[Database] Initialization failed:', error);
+      this.db = null;
+      this.isInitialized = false;
+      throw error;
+    }
+  }
+
+  private getDb(): LowDBInstance {
+    if (!this.db) throw new Error('Database not initialized. Call initialize() first.');
+    return this.db;
+  }
+
+  isReady(): boolean {
+    return this.isInitialized && this.db !== null;
+  }
+
+  async close(): Promise<void> {
+    this.db = null;
+    this.isInitialized = false;
+    console.log('[Database] Connection closed');
+  }
+
+  // ============================================================================
+  // SQL execution (minimal interpreter for repository queries)
+  // ============================================================================
+
+  private normalize(sql: string): string {
+    return sql
+      .replace(/\s+/g, ' ')
+      .replace(/\s*\(\s*/g, '(')
+      .replace(/\s*\)\s*/g, ')')
+      .trim()
+      .toLowerCase();
+  }
+
+  async execute<T = Record<string, unknown>>(
+    sql: string,
+    params: (string | number | null)[] = [],
+  ): Promise<QueryResult<T>> {
+    const db = this.getDb();
+    const norm = this.normalize(sql);
+
+    if (norm.startsWith('insert into books')) {
+      const cols = this.parseInsertColumns(sql);
+      const row: Record<string, unknown> = {};
+      cols.forEach((c, i) => { row[c] = params[i] ?? null; });
+      await db.update((data) => data.books.push(row));
+      return { rows: [], rowsAffected: 1, insertId: undefined };
+    }
+    if (norm.startsWith('update books set') && norm.includes('where id = ?')) {
+      const id = String(params[params.length - 1]);
+      const setPart = sql.match(/SET\s+(.+?)\s+WHERE/is)?.[1] ?? '';
+      const updates = this.parseSetClause(setPart, params.slice(0, -1));
+      let affected = 0;
+      await db.update((data) => {
+        const book = data.books.find((b: Record<string, unknown>) => b.id === id);
+        if (book) {
+          Object.assign(book, updates);
+          affected = 1;
+        }
+      });
+      return { rows: [], rowsAffected: affected };
+    }
+    if (norm === 'delete from books where id = ?') {
+      const id = String(params[0]);
+      await db.update((data) => {
+        const i = data.books.findIndex((b: Record<string, unknown>) => b.id === id);
+        if (i >= 0) data.books.splice(i, 1);
+      });
+      return { rows: [], rowsAffected: 1 };
+    }
+    if (norm === 'delete from books') {
+      await db.update((data) => { data.books = []; });
+      return { rows: [], rowsAffected: 0 };
+    }
+
+    if (norm.startsWith('insert into vocabulary')) {
+      const cols = this.parseInsertColumns(sql);
+      const row: Record<string, unknown> = {};
+      cols.forEach((c, i) => { row[c] = params[i] ?? null; });
+      await db.update((data) => data.vocabulary.push(row));
+      return { rows: [], rowsAffected: 1 };
+    }
+    if (norm.startsWith('update vocabulary set') && norm.includes('where id = ?')) {
+      const id = String(params[params.length - 1]);
+      const setPart = sql.match(/SET\s+(.+?)\s+WHERE/is)?.[1] ?? '';
+      const updates = this.parseSetClause(setPart, params.slice(0, -1));
+      let affected = 0;
+      await db.update((data) => {
+        const v = data.vocabulary.find((x: Record<string, unknown>) => x.id === id);
+        if (v) { Object.assign(v, updates); affected = 1; }
+      });
+      return { rows: [], rowsAffected: affected };
+    }
+    if (norm === 'delete from vocabulary where id = ?') {
+      const id = String(params[0]);
+      await db.update((data) => {
+        const i = data.vocabulary.findIndex((x: Record<string, unknown>) => x.id === id);
+        if (i >= 0) data.vocabulary.splice(i, 1);
+      });
+      return { rows: [], rowsAffected: 1 };
+    }
+    if (norm === 'delete from vocabulary') {
+      await db.update((data) => { data.vocabulary = []; });
+      return { rows: [], rowsAffected: 0 };
+    }
+
+    if (norm.startsWith('insert into reading_sessions')) {
+      const cols = this.parseInsertColumns(sql);
+      const row: Record<string, unknown> = {};
+      cols.forEach((c, i) => { row[c] = params[i] ?? null; });
+      await db.update((data) => data.reading_sessions.push(row));
+      return { rows: [], rowsAffected: 1 };
+    }
+    if (norm.startsWith('update reading_sessions set') && norm.includes('where id = ?')) {
+      const id = String(params[params.length - 1]);
+      const setPart = sql.match(/SET\s+(.+?)\s+WHERE/is)?.[1] ?? '';
+      const updates = this.parseSetClause(setPart, params.slice(0, -1));
+      let affected = 0;
+      await db.update((data) => {
+        const s = data.reading_sessions.find((x: Record<string, unknown>) => x.id === id);
+        if (s) { Object.assign(s, updates); affected = 1; }
+      });
+      return { rows: [], rowsAffected: affected };
+    }
+    if (norm === 'delete from reading_sessions where id = ?') {
+      const id = String(params[0]);
+      await db.update((data) => {
+        const i = data.reading_sessions.findIndex((x: Record<string, unknown>) => x.id === id);
+        if (i >= 0) data.reading_sessions.splice(i, 1);
+      });
+      return { rows: [], rowsAffected: 1 };
+    }
+    if (norm === 'delete from reading_sessions where book_id = ?') {
+      const bookId = String(params[0]);
+      await db.update((data) => {
+        data.reading_sessions = data.reading_sessions.filter(
+          (x: Record<string, unknown>) => x.book_id !== bookId,
+        );
+      });
+      return { rows: [], rowsAffected: 0 };
+    }
+
+    if (norm.includes('insert or replace into preferences') || norm.includes('insert into preferences')) {
+      const key = String(params[0]);
+      const value = String(params[1]);
+      await db.update((data) => { data.preferences[key] = value; });
+      return { rows: [], rowsAffected: 1 };
+    }
+
+    // Fallback: treat as no-op for unknown writes
+    if (norm.startsWith('select')) {
+      return { rows: [], rowsAffected: 0 };
+    }
+    return { rows: [], rowsAffected: 0 };
+  }
+
+  private parseInsertColumns(sql: string): string[] {
+    const m = sql.match(/INSERT\s+INTO\s+\w+\s*\(([^)]+)\)/i);
+    if (!m) return [];
+    return m[1].split(',').map((s) => s.trim().toLowerCase());
+  }
+
+  private parseSetClause(setClause: string, params: (string | number | null)[]): Record<string, unknown> {
+    const out: Record<string, unknown> = {};
+    const parts = setClause.split(',');
+    let pi = 0;
+    for (const p of parts) {
+      const match = p.trim().match(/^(\w+)\s*=\s*\?$/i) || p.trim().match(/^(\w+)\s*=\s*coalesce\(\?/i);
+      if (match) {
+        const col = match[1].toLowerCase();
+        out[col] = params[pi] ?? null;
+        pi++;
+      }
+    }
+    return out;
+  }
+
+  async getOne<T = Record<string, unknown>>(
+    sql: string,
+    params: (string | number | null)[] = [],
+  ): Promise<T | null> {
+    const rows = await this.getAll<T>(sql, params);
+    return rows.length > 0 ? rows[0] : null;
+  }
+
+  async getAll<T = Record<string, unknown>>(
+    sql: string,
+    params: (string | number | null)[] = [],
+  ): Promise<T[]> {
+    const db = this.getDb();
+    const norm = this.normalize(sql);
+
+    if (norm.includes('select * from books where id = ?')) {
+      const id = String(params[0]);
+      const book = db.data.books.find((b: Record<string, unknown>) => b.id === id);
+      return book ? [book as T] : [];
+    }
+    if (norm.includes('select * from books')) {
+      let list = [...db.data.books];
+      if (norm.includes('order by')) {
+        const orderMatch = sql.match(/ORDER\s+BY\s+([^\s]+)\s+(ASC|DESC)/i);
+        if (orderMatch) {
+          const col = orderMatch[1].toLowerCase().replace(/nulls\s+last/i, '').trim();
+          const desc = orderMatch[2].toLowerCase() === 'desc';
+          list.sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
+            const av = a[col] ?? 0;
+            const bv = b[col] ?? 0;
+            if (av === bv) return 0;
+            const cmp = av < bv ? -1 : 1;
+            return desc ? -cmp : cmp;
+          });
+        }
+      }
+      if (norm.includes('where format = ?') || norm.includes('where target_lang = ?') || norm.includes('where proficiency = ?')) {
+        const col = norm.includes('format = ?') ? 'format' : norm.includes('target_lang = ?') ? 'target_lang' : 'proficiency';
+        const val = params[0];
+        list = list.filter((r: Record<string, unknown>) => r[col] === val);
+      }
+      if (norm.includes('where title like ?') && norm.includes('or author like ?')) {
+        const q = String(params[0]).replace(/%/g, '');
+        list = list.filter(
+          (r: Record<string, unknown>) =>
+            String(r.title || '').toLowerCase().includes(q.toLowerCase()) ||
+            String(r.author || '').toLowerCase().includes(q.toLowerCase()),
+        );
+      }
+      if (norm.includes('where last_read_at is not null') && norm.includes('limit ?')) {
+        list = list.filter((r: Record<string, unknown>) => r.last_read_at != null);
+        const limit = Number(params[params.length - 1]) || 10;
+        list = list.slice(0, limit);
+      }
+      if (norm.includes('where progress > 0 and progress < 100')) {
+        list = list.filter(
+          (r: Record<string, unknown>) =>
+            Number(r.progress) > 0 && Number(r.progress) < 100,
+        );
+      }
+      if (norm.includes('limit ?') && !norm.includes('last_read_at is not null')) {
+        const limit = Number(params[params.length - 1]) || 999;
+        list = list.slice(0, limit);
+      }
+      return list as T[];
+    }
+    if (norm.includes('select count(*) as count from books')) {
+      const count = db.data.books.length;
+      return [{ count } as T];
+    }
+    if (norm.includes('select count(*), sum(case') && norm.includes('from books')) {
+      const total = db.data.books.length;
+      const inProgress = db.data.books.filter(
+        (b: Record<string, unknown>) => Number(b.progress) > 0 && Number(b.progress) < 100,
+      ).length;
+      const completed = db.data.books.filter((b: Record<string, unknown>) => Number(b.progress) >= 100).length;
+      const totalTime = db.data.books.reduce((s, b) => s + (Number((b as any).reading_time_minutes) || 0), 0);
+      return [{ total, in_progress: inProgress, completed, total_time: totalTime } as T];
+    }
+
+    if (norm.includes('select * from vocabulary where id = ?')) {
+      const id = String(params[0]);
+      const v = db.data.vocabulary.find((x: Record<string, unknown>) => x.id === id);
+      return v ? [v as T] : [];
+    }
+    if (norm.includes('select * from vocabulary')) {
+      let list = [...db.data.vocabulary];
+      if (norm.includes('order by')) {
+        const orderMatch = sql.match(/ORDER\s+BY\s+([^\s]+)\s+(ASC|DESC)/i);
+        if (orderMatch) {
+          const col = orderMatch[1].toLowerCase().replace(/nulls\s+first/i, '').trim();
+          const desc = orderMatch[2].toLowerCase() === 'desc';
+          list.sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
+            const av = a[col] ?? 0;
+            const bv = b[col] ?? 0;
+            if (av === bv) return 0;
+            return (av < bv ? -1 : 1) * (desc ? -1 : 1);
+          });
+        }
+      }
+      if (norm.includes('where status = ?')) {
+        const val = params[0];
+        list = list.filter((r: Record<string, unknown>) => r.status === val);
+      }
+      if (norm.includes('where book_id = ?')) {
+        const val = params[0];
+        list = list.filter((r: Record<string, unknown>) => r.book_id === val);
+      }
+      if (norm.includes('where source_word like ?') && norm.includes('or target_word like ?')) {
+        const q = String(params[0]).replace(/%/g, '');
+        list = list.filter(
+          (r: Record<string, unknown>) =>
+            String(r.source_word || '').toLowerCase().includes(q.toLowerCase()) ||
+            String(r.target_word || '').toLowerCase().includes(q.toLowerCase()),
+        );
+      }
+      if (norm.includes("status != 'learned'") && norm.includes('last_reviewed_at') && norm.includes('limit ?')) {
+        const now = Number(params[0]);
+        const limit = Number(params[params.length - 1]) || 20;
+        list = list.filter((r: Record<string, unknown>) => {
+          if (r.status === 'learned') return false;
+          const last = Number(r.last_reviewed_at) || 0;
+          const interval = Number(r.interval) || 0;
+          return last + interval * 86400000 <= now;
+        });
+        list.sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
+          const o = (x: Record<string, unknown>) => (x.status === 'new' ? 0 : x.status === 'learning' ? 1 : 2);
+          const ad = o(a);
+          const bd = o(b);
+          if (ad !== bd) return ad - bd;
+          return (Number(a.last_reviewed_at) || 0) - (Number(b.last_reviewed_at) || 0);
+        });
+        list = list.slice(0, limit);
+      }
+      if (norm.includes('where added_at >= ?')) {
+        const t = Number(params[0]);
+        list = list.filter((r: Record<string, unknown>) => Number(r.added_at) >= t);
+      }
+      if (norm.includes('limit ?') && !norm.includes('last_reviewed_at')) {
+        const limit = Number(params[params.length - 1]) || 999;
+        list = list.slice(0, limit);
+      }
+      return list as T[];
+    }
+    if (norm.includes('select count(*), sum(case') && norm.includes('from vocabulary')) {
+      const total = db.data.vocabulary.length;
+      const new_count = db.data.vocabulary.filter((r: Record<string, unknown>) => r.status === 'new').length;
+      const learning_count = db.data.vocabulary.filter((r: Record<string, unknown>) => r.status === 'learning').length;
+      const review_count = db.data.vocabulary.filter((r: Record<string, unknown>) => r.status === 'review').length;
+      const learned_count = db.data.vocabulary.filter((r: Record<string, unknown>) => r.status === 'learned').length;
+      return [{ total, new_count, learning_count, review_count, learned_count } as T];
+    }
+    if (norm.includes('select count(*) as due from vocabulary') && norm.includes('status != \'learned\'')) {
+      const now = Number(params[0]);
+      const due = db.data.vocabulary.filter((r: Record<string, unknown>) => {
+        if (r.status === 'learned') return false;
+        const last = Number(r.last_reviewed_at) || 0;
+        const interval = Number(r.interval) || 0;
+        return last + interval * 86400000 <= now;
+      }).length;
+      return [{ due } as T];
+    }
+    if (norm.includes('select count(*) as count from vocabulary where status = ?')) {
+      const st = String(params[0]);
+      const count = db.data.vocabulary.filter((r: Record<string, unknown>) => r.status === st).length;
+      return [{ count } as T];
+    }
+    if (norm.includes("select count(*) as count from vocabulary where status = 'learned'")) {
+      const count = db.data.vocabulary.filter((r: Record<string, unknown>) => r.status === 'learned').length;
+      return [{ count } as T];
+    }
+
+    if (norm.includes('select * from reading_sessions where id = ?')) {
+      const id = String(params[0]);
+      const s = db.data.reading_sessions.find((x: Record<string, unknown>) => x.id === id);
+      return s ? [s as T] : [];
+    }
+    if (norm.includes('select * from reading_sessions where book_id = ?')) {
+      const bookId = String(params[0]);
+      const list = db.data.reading_sessions
+        .filter((x: Record<string, unknown>) => x.book_id === bookId)
+        .sort((a: Record<string, unknown>, b: Record<string, unknown>) => Number(b.started_at) - Number(a.started_at));
+      return list as T[];
+    }
+    if (norm.includes('select * from reading_sessions where ended_at is not null') && norm.includes('limit ?')) {
+      const list = db.data.reading_sessions
+        .filter((x: Record<string, unknown>) => x.ended_at != null)
+        .sort((a: Record<string, unknown>, b: Record<string, unknown>) => Number(b.started_at) - Number(a.started_at));
+      const limit = Number(params[0]) || 10;
+      return list.slice(0, limit) as T[];
+    }
+    if (norm.includes('select * from reading_sessions where started_at >= ?')) {
+      const t = Number(params[0]);
+      const list = db.data.reading_sessions
+        .filter((x: Record<string, unknown>) => Number(x.started_at) >= t)
+        .sort((a: Record<string, unknown>, b: Record<string, unknown>) => Number(b.started_at) - Number(a.started_at));
+      return list as T[];
+    }
+    if (norm.includes('select count(distinct book_id)') && norm.includes('from reading_sessions')) {
+      const ended = db.data.reading_sessions.filter((x: Record<string, unknown>) => x.ended_at != null);
+      const books_read = new Set(ended.map((x: Record<string, unknown>) => x.book_id)).size;
+      const total_time = ended.reduce((s, x) => s + (Number(x.duration) || 0), 0);
+      const avg_session = ended.length ? total_time / ended.length : 0;
+      return [{ books_read, total_time, avg_session } as T];
+    }
+    if (norm.includes('select coalesce(sum(words_revealed)') && norm.includes('from reading_sessions where started_at >= ?')) {
+      const t = Number(params[0]);
+      const list = db.data.reading_sessions.filter((x: Record<string, unknown>) => Number(x.started_at) >= t);
+      const words_revealed = list.reduce((s, x) => s + (Number(x.words_revealed) || 0), 0);
+      const words_saved = list.reduce((s, x) => s + (Number(x.words_saved) || 0), 0);
+      return [{ words_revealed, words_saved } as T];
+    }
+    if (norm.includes('select distinct date(started_at')) {
+      const ended = db.data.reading_sessions.filter((x: Record<string, unknown>) => x.ended_at != null);
+      const days = [...new Set(ended.map((x: Record<string, unknown>) => {
+        const ms = Number(x.started_at) || 0;
+        const d = new Date(ms);
+        return d.toISOString().slice(0, 10);
+      }))].sort().reverse();
+      return days.map((day) => ({ day })) as T[];
+    }
+    if (norm.includes('select coalesce(sum(duration)') && norm.includes('from reading_sessions where started_at >= ? and started_at < ?')) {
+      const t1 = Number(params[0]);
+      const t2 = Number(params[1]);
+      const list = db.data.reading_sessions.filter(
+        (x: Record<string, unknown>) => Number(x.started_at) >= t1 && Number(x.started_at) < t2 && x.ended_at != null,
+      );
+      const total = list.reduce((s, x) => s + (Number(x.duration) || 0), 0);
+      return [{ total } as T];
+    }
+    if (norm.includes('select date(') && norm.includes('sum(duration)') && norm.includes('group by day')) {
+      const t0 = Number(params[0]);
+      const byDay: Record<string, number> = {};
+      db.data.reading_sessions
+        .filter((x: Record<string, unknown>) => Number(x.started_at) >= t0 && x.ended_at != null)
+        .forEach((x: Record<string, unknown>) => {
+          const d = new Date(Number(x.started_at)).toISOString().slice(0, 10);
+          byDay[d] = (byDay[d] || 0) + (Number(x.duration) || 0);
+        });
+      const rows = Object.entries(byDay).map(([day, total]) => ({ day, total })).sort((a, b) => a.day.localeCompare(b.day));
+      return rows as T[];
+    }
+
+    if (norm.includes('select value from preferences where key = ?')) {
+      const key = String(params[0]);
+      const value = db.data.preferences[key] ?? null;
+      return value != null ? [{ value } as T] : [];
+    }
+    if (norm.includes('select * from preferences')) {
+      return Object.entries(db.data.preferences).map(([key, value]) => ({ key, value })) as T[];
+    }
+
+    if (norm.includes('select max(version) as version from _migrations')) {
+      const versions = db.data._migrations.map((m) => m.version);
+      const version = versions.length ? Math.max(...versions) : 0;
+      return [{ version } as T];
+    }
+
+    return [];
+  }
+
+  async transaction<T>(callback: (tx: Transaction) => Promise<T>): Promise<T> {
+    const operations: Array<{ sql: string; params: (string | number | null)[] }> = [];
+    const tx: Transaction = {
+      executeSql: (sql: string, params: any[]) => {
+        const result = this.executeSync(sql, params);
+        operations.push({ sql, params: params ?? [] });
+        return result;
+      },
+    };
+    const result = await callback(tx);
+    if (operations.length > 0) {
+      await this.executeBatch(operations.map((o) => ({ sql: o.sql, params: o.params })));
+    }
+    return result;
+  }
+
+  private executeSync<T = Record<string, unknown>>(
+    sql: string,
+    params: (string | number | null)[],
+  ): QueryResult<T> {
+    const db = this.getDb();
+    const norm = this.normalize(sql);
+    if (norm.startsWith('select')) {
+      const rows = this.runGetAllSync(db, sql, params) as T[];
+      return { rows, rowsAffected: 0 };
+    }
+    this.runExecuteSync(db, sql, params);
+    return { rows: [], rowsAffected: 1 };
+  }
+
+  private runGetAllSync(db: LowDBInstance, sql: string, params: (string | number | null)[]): Record<string, unknown>[] {
+    const norm = this.normalize(sql);
+    if (norm.includes('select * from books where id = ?')) {
+      const id = String(params[0]);
+      const book = db.data.books.find((b: Record<string, unknown>) => b.id === id);
+      return book ? [book] : [];
+    }
+    if (norm.includes('select * from vocabulary where id = ?')) {
+      const id = String(params[0]);
+      const v = db.data.vocabulary.find((x: Record<string, unknown>) => x.id === id);
+      return v ? [v] : [];
+    }
+    if (norm.includes('select * from reading_sessions where id = ?')) {
+      const id = String(params[0]);
+      const s = db.data.reading_sessions.find((x: Record<string, unknown>) => x.id === id);
+      return s ? [s] : [];
+    }
+    return [];
+  }
+
+  private runExecuteSync(db: LowDBInstance, sql: string, params: (string | number | null)[]): void {
+    const norm = this.normalize(sql);
+    if (norm.startsWith('insert into books')) {
+      const cols = this.parseInsertColumns(sql);
+      const row: Record<string, unknown> = {};
+      cols.forEach((c, i) => { row[c] = params[i] ?? null; });
+      db.data.books.push(row);
+    } else if (norm.startsWith('update books set') && norm.includes('where id = ?')) {
+      const id = String(params[params.length - 1]);
+      const book = db.data.books.find((b: Record<string, unknown>) => b.id === id);
+      if (book) {
+        if (norm.includes('reading_time_minutes = reading_time_minutes + ?')) {
+          const addMinutes = Number(params[0]) || 0;
+          (book as any).reading_time_minutes = (Number((book as any).reading_time_minutes) || 0) + addMinutes;
+          (book as any).last_read_at = params[1] ?? Date.now();
+        } else {
+          const setPart = sql.match(/SET\s+(.+?)\s+WHERE/is)?.[1] ?? '';
+          const updates = this.parseSetClause(setPart, params.slice(0, -1));
+          Object.assign(book, updates);
+        }
+      }
+    } else if (norm === 'delete from books where id = ?') {
+      const id = String(params[0]);
+      const i = db.data.books.findIndex((b: Record<string, unknown>) => b.id === id);
+      if (i >= 0) db.data.books.splice(i, 1);
+    } else if (norm === 'delete from books') {
+      db.data.books = [];
+    } else if (norm.startsWith('insert into vocabulary')) {
+      const cols = this.parseInsertColumns(sql);
+      const row: Record<string, unknown> = {};
+      cols.forEach((c, i) => { row[c] = params[i] ?? null; });
+      db.data.vocabulary.push(row);
+    } else if (norm.startsWith('update vocabulary set') && norm.includes('where id = ?')) {
+      const id = String(params[params.length - 1]);
+      const setPart = sql.match(/SET\s+(.+?)\s+WHERE/is)?.[1] ?? '';
+      const updates = this.parseSetClause(setPart, params.slice(0, -1));
+      const v = db.data.vocabulary.find((x: Record<string, unknown>) => x.id === id);
+      if (v) Object.assign(v, updates);
+    } else if (norm === 'delete from vocabulary where id = ?') {
+      const id = String(params[0]);
+      const i = db.data.vocabulary.findIndex((x: Record<string, unknown>) => x.id === id);
+      if (i >= 0) db.data.vocabulary.splice(i, 1);
+    } else if (norm === 'delete from vocabulary') {
+      db.data.vocabulary = [];
+    } else if (norm.startsWith('insert into reading_sessions')) {
+      const cols = this.parseInsertColumns(sql);
+      const row: Record<string, unknown> = {};
+      cols.forEach((c, i) => { row[c] = params[i] ?? null; });
+      db.data.reading_sessions.push(row);
+    } else if (norm.startsWith('update reading_sessions set') && norm.includes('where id = ?')) {
+      const id = String(params[params.length - 1]);
+      const setPart = sql.match(/SET\s+(.+?)\s+WHERE/is)?.[1] ?? '';
+      const updates = this.parseSetClause(setPart, params.slice(0, -1));
+      const s = db.data.reading_sessions.find((x: Record<string, unknown>) => x.id === id);
+      if (s) Object.assign(s, updates);
+    } else if (norm === 'delete from reading_sessions where id = ?') {
+      const id = String(params[0]);
+      const i = db.data.reading_sessions.findIndex((x: Record<string, unknown>) => x.id === id);
+      if (i >= 0) db.data.reading_sessions.splice(i, 1);
+    } else if (norm === 'delete from reading_sessions where book_id = ?') {
+      const bookId = String(params[0]);
+      db.data.reading_sessions = db.data.reading_sessions.filter(
+        (x: Record<string, unknown>) => x.book_id !== bookId,
+      );
+    } else if (norm === 'delete from reading_sessions') {
+      db.data.reading_sessions = [];
+    }
+  }
+
+  async executeBatch(
+    statements: Array<{ sql: string; params?: (string | number | null)[] }>,
+  ): Promise<void> {
+    const db = this.getDb();
+    for (const st of statements) {
+      this.runExecuteSync(db, st.sql, st.params ?? []);
+    }
+    await db.write();
+  }
+
+  async getSchemaVersion(): Promise<number> {
+    try {
+      const r = await this.getOne<{ version: number }>('SELECT MAX(version) as version FROM _migrations');
+      return r?.version ?? 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  async tableExists(tableName: string): Promise<boolean> {
+    const tables = ['books', 'vocabulary', 'reading_sessions', 'preferences', 'word_list', '_migrations'];
+    return tables.includes(tableName.toLowerCase());
+  }
+
+  async getTableInfo(_tableName: string): Promise<Array<{ name: string; type: string }>> {
+    return [];
+  }
+
+  async vacuum(): Promise<void> {
+    // No-op for JSON
+  }
+}
 
 export const databaseService = new DatabaseService();
 (DatabaseService as unknown as { getInstance: () => DatabaseService }).getInstance = () => databaseService;

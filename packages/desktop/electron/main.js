@@ -140,9 +140,10 @@ async function createWindow() {
     mainWindow.setMenuBarVisibility(true);
   });
 
-  // Re-apply application menu when leaving full screen (menu bar can disappear on Linux/Windows)
+  // Re-apply application menu and restore menu bar when leaving full screen (menu bar can disappear on Linux/Windows)
   mainWindow.on('leave-full-screen', () => {
     createMenu();
+    mainWindow.setMenuBarVisibility(true);
   });
 }
 
@@ -273,7 +274,7 @@ function setupIpcHandlers() {
     }
   });
 
-  // Database: renderer calls main so better-sqlite3 (native) runs only in main process
+  // Database: renderer calls main; LowDB (JSON) runs only in main process
   let databaseService = null;
   function getDatabaseService() {
     if (!databaseService) {

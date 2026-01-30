@@ -16,15 +16,21 @@ import {VocabularyScreen} from './screens/VocabularyScreen';
 import './App.css';
 
 function OnboardingGuard({children}: {children: React.ReactNode}): React.JSX.Element {
-  const {preferences, loadPreferences, isLoading} = useUserStore();
+  const {preferences, loadPreferences} = useUserStore();
   const [loaded, setLoaded] = useState(false);
   const location = useLocation();
 
   useEffect(() => {
-    loadPreferences().then(() => setLoaded(true));
+    loadPreferences()
+      .then(() => setLoaded(true))
+      .catch((err) => {
+        console.error('Failed to load preferences:', err);
+        setLoaded(true);
+      });
   }, [loadPreferences]);
 
-  if (!loaded || isLoading) {
+  // Only block on initial load; don't show Loading when Settings (or others) refresh preferences
+  if (!loaded) {
     return (
       <div className="app-loading" style={{padding: 24, textAlign: 'center'}}>
         Loading...

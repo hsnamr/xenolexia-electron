@@ -154,6 +154,13 @@ class SessionRepository {
     );
   }
 
+  /**
+   * Delete all sessions
+   */
+  async deleteAll(): Promise<void> {
+    await databaseService.execute('DELETE FROM reading_sessions');
+  }
+
   // ============================================================================
   // Statistics
   // ============================================================================

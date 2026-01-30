@@ -33,11 +33,7 @@
     "build:linux:deb": "cd packages/desktop && npm run build:linux:deb",
     "build:linux:rpm": "cd packages/desktop && npm run build:linux:rpm",
     "build:linux:arch": "cd packages/desktop && npm run build:linux:arch",
-    "build:linux:tarball": "cd packages/desktop && npm run build:linux:tarball",
-    "rebuild": "electron-rebuild -f -w better-sqlite3"
-  },
-  "optionalDependencies": {
-    "@electron/rebuild": "^4.0.0"
+    "build:linux:tarball": "cd packages/desktop && npm run build:linux:tarball"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.51.1",
@@ -70,7 +66,6 @@
     "buffer": "^6.0.3",
     "crypto-browserify": "^3.12.1",
     "electron": "^40.0.0",
-    "electron-rebuild": "^3.2.9",
     "electron-builder": "^26.4.0",
     "eslint": "^8.57.0",
     "eslint-config-prettier": "^9.1.0",

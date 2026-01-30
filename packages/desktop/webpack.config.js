@@ -95,7 +95,7 @@ module.exports = {
     new webpack.ProvidePlugin({
       process: require.resolve('process/browser.js'),
     }),
-    // Use IPC stub for DatabaseService in renderer so better-sqlite3 (native) never runs in renderer
+    // Use IPC stub for DatabaseService in renderer so DB runs only in main process
     new webpack.NormalModuleReplacementPlugin(
       /[\\/]DatabaseService\.electron(\.ts)?$/,
       path.resolve(__dirname, 'src/services/DatabaseService.renderer.ts'),

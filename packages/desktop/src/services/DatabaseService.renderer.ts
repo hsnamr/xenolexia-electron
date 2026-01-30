@@ -1,6 +1,6 @@
 /**
  * Database Service - Renderer stub using IPC
- * Used in the Electron renderer so better-sqlite3 (native) never runs in the renderer.
+ * Used in the Electron renderer so the database (LowDB) runs only in the main process.
  * All operations are forwarded to the main process via IPC.
  */
 
