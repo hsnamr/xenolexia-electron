@@ -1,31 +1,17 @@
 /**
  * Word Database Service - Manages word list storage and lookups
- *
- * Handles loading, querying, and caching of frequency-ranked word translations
- * stored in SQLite database.
+ * Uses direct LowDB data API (word_list).
  */
 
-import {DatabaseSchema} from '../StorageService/DatabaseSchema';
-import {DatabaseService} from '../StorageService/DatabaseService';
-
-import type {Language, ProficiencyLevel, WordEntry, PartOfSpeech} from '../types';
+import {databaseService} from '../StorageService/DatabaseService';
+import type {WordListRow} from '../StorageService/DataStore.types';
+import type {Language, ProficiencyLevel, WordEntry, PartOfSpeech} from '../../types';
 
 // ============================================================================
 // Types
 // ============================================================================
 
-export interface WordDatabaseEntry {
-  id: string;
-  source_word: string;
-  target_word: string;
-  source_lang: string;
-  target_lang: string;
-  proficiency: string;
-  frequency_rank: number | null;
-  part_of_speech: string | null;
-  variants: string | null; // JSON array string
-  pronunciation: string | null;
-}
+export type WordDatabaseEntry = WordListRow;
 
 export interface WordLookupOptions {
   caseSensitive?: boolean;
@@ -77,15 +63,11 @@ export function getProficiencyFromRank(rank: number): ProficiencyLevel {
 // ============================================================================
 
 export class WordDatabaseService {
-  private db: DatabaseService;
+  private db = databaseService;
   private cache: Map<string, WordEntry> = new Map();
   private variantsCache: Map<string, string> = new Map();
   private cacheLoaded: Map<string, boolean> = new Map();
   private readonly MAX_CACHE_SIZE = 5000;
-
-  constructor() {
-    this.db = DatabaseService.getInstance();
-  }
 
   /**
    * Initialize the word database
@@ -102,12 +84,7 @@ export class WordDatabaseService {
     if (this.cacheLoaded.get(cacheKey)) return;
 
     try {
-      const rows = await this.db.getAll<WordDatabaseEntry>(
-        `SELECT * FROM word_list 
-         WHERE source_lang = ? AND target_lang = ? 
-         ORDER BY frequency_rank`,
-        [sourceLanguage, targetLanguage]
-      );
+      const rows = await this.db.getWordListByLangs(sourceLanguage, targetLanguage);
 
       for (const row of rows) {
         const entry = this.rowToWordEntry(row);
@@ -182,26 +159,12 @@ export class WordDatabaseService {
     targetLanguage: Language,
     includeVariants: boolean
   ): Promise<WordEntry | null> {
-    // Try exact match
-    let row = await this.db.getOne<WordDatabaseEntry>(DatabaseSchema.wordList.getByWord, [
-      word,
-      sourceLanguage,
-      targetLanguage,
-    ]);
-
+    let row = await this.db.getWordListEntry(word, sourceLanguage, targetLanguage);
     if (row) return this.rowToWordEntry(row);
-
-    // Try variant match
     if (includeVariants) {
-      row = await this.db.getOne<WordDatabaseEntry>(
-        `SELECT * FROM word_list 
-         WHERE source_lang = ? AND target_lang = ? 
-         AND variants LIKE ?`,
-        [sourceLanguage, targetLanguage, `%"${word}"%`]
-      );
+      row = await this.db.getWordListEntryByVariant(word, sourceLanguage, targetLanguage);
       if (row) return this.rowToWordEntry(row);
     }
-
     return null;
   }
 
@@ -235,12 +198,8 @@ export class WordDatabaseService {
     targetLanguage: Language,
     level: ProficiencyLevel
   ): Promise<WordEntry[]> {
-    const rows = await this.db.getAll<WordDatabaseEntry>(DatabaseSchema.wordList.getByLevel, [
-      sourceLanguage,
-      targetLanguage,
-      level,
-    ]);
-    return rows.map(row => this.rowToWordEntry(row));
+    const rows = await this.db.getWordListByLevel(sourceLanguage, targetLanguage, level);
+    return rows.map((row) => this.rowToWordEntry(row));
   }
 
   /**
@@ -252,13 +211,11 @@ export class WordDatabaseService {
     level: ProficiencyLevel,
     count: number
   ): Promise<WordEntry[]> {
-    const rows = await this.db.getAll<WordDatabaseEntry>(
-      `SELECT * FROM word_list 
-       WHERE source_lang = ? AND target_lang = ? AND proficiency = ?
-       ORDER BY RANDOM() LIMIT ?`,
-      [sourceLanguage, targetLanguage, level, count]
-    );
-    return rows.map(row => this.rowToWordEntry(row));
+    const rows = await this.db.getWordListByLevel(sourceLanguage, targetLanguage, level, {
+      limit: count,
+      random: true,
+    });
+    return rows.map((row) => this.rowToWordEntry(row));
   }
 
   /**
@@ -270,25 +227,15 @@ export class WordDatabaseService {
     targetLanguage: Language,
     limit: number = 20
   ): Promise<WordEntry[]> {
-    const rows = await this.db.getAll<WordDatabaseEntry>(
-      `SELECT * FROM word_list 
-       WHERE source_lang = ? AND target_lang = ? 
-       AND (source_word LIKE ? OR target_word LIKE ?)
-       ORDER BY frequency_rank LIMIT ?`,
-      [sourceLanguage, targetLanguage, `${query}%`, `${query}%`, limit]
-    );
-    return rows.map(row => this.rowToWordEntry(row));
+    const rows = await this.db.getWordListSearch(sourceLanguage, targetLanguage, query, limit);
+    return rows.map((row) => this.rowToWordEntry(row));
   }
 
   /**
    * Get word count for a language pair
    */
   async getWordCount(sourceLanguage: Language, targetLanguage: Language): Promise<number> {
-    const result = await this.db.getOne<{count: number}>(DatabaseSchema.wordList.count, [
-      sourceLanguage,
-      targetLanguage,
-    ]);
-    return result?.count || 0;
+    return this.db.getWordListCount(sourceLanguage, targetLanguage);
   }
 
   /**
@@ -296,64 +243,33 @@ export class WordDatabaseService {
    */
   async getStats(sourceLanguage: Language, targetLanguage: Language): Promise<WordDatabaseStats> {
     const total = await this.getWordCount(sourceLanguage, targetLanguage);
-
-    const proficiencyCounts = await this.db.getAll<{proficiency: string; count: number}>(
-      `SELECT proficiency, COUNT(*) as count FROM word_list 
-       WHERE source_lang = ? AND target_lang = ?
-       GROUP BY proficiency`,
-      [sourceLanguage, targetLanguage]
-    );
-
-    const posCounts = await this.db.getAll<{part_of_speech: string; count: number}>(
-      `SELECT part_of_speech, COUNT(*) as count FROM word_list 
-       WHERE source_lang = ? AND target_lang = ? AND part_of_speech IS NOT NULL
-       GROUP BY part_of_speech`,
-      [sourceLanguage, targetLanguage]
-    );
-
+    const byProficiencyRaw = await this.db.getWordListProficiencyCounts(sourceLanguage, targetLanguage);
+    const byPartOfSpeech = await this.db.getWordListPosCounts(sourceLanguage, targetLanguage);
     const byProficiency = {
-      beginner: 0,
-      intermediate: 0,
-      advanced: 0,
+      beginner: byProficiencyRaw.beginner ?? 0,
+      intermediate: byProficiencyRaw.intermediate ?? 0,
+      advanced: byProficiencyRaw.advanced ?? 0,
     };
-    for (const row of proficiencyCounts) {
-      if (row.proficiency in byProficiency) {
-        byProficiency[row.proficiency as ProficiencyLevel] = row.count;
-      }
-    }
-
-    const byPartOfSpeech: Record<string, number> = {};
-    for (const row of posCounts) {
-      if (row.part_of_speech) {
-        byPartOfSpeech[row.part_of_speech] = row.count;
-      }
-    }
-
-    return {
-      totalWords: total,
-      byProficiency,
-      byPartOfSpeech,
-    };
+    return {totalWords: total, byProficiency, byPartOfSpeech};
   }
 
   /**
    * Add a single word to the database
    */
   async addWord(entry: WordEntry): Promise<void> {
-    await this.db.execute(DatabaseSchema.wordList.insert, [
-      entry.id,
-      entry.sourceWord,
-      entry.targetWord,
-      entry.sourceLanguage,
-      entry.targetLanguage,
-      entry.proficiencyLevel,
-      entry.frequencyRank,
-      entry.partOfSpeech,
-      entry.variants.length > 0 ? JSON.stringify(entry.variants) : null,
-      entry.pronunciation || null,
-    ]);
-
-    // Update cache
+    const row: WordListRow = {
+      id: entry.id ?? `${entry.sourceLanguage}_${entry.targetLanguage}_${entry.sourceWord}`,
+      source_word: entry.sourceWord,
+      target_word: entry.targetWord,
+      source_lang: entry.sourceLanguage,
+      target_lang: entry.targetLanguage,
+      proficiency: entry.proficiencyLevel,
+      frequency_rank: entry.frequencyRank ?? null,
+      part_of_speech: entry.partOfSpeech ?? null,
+      variants: entry.variants?.length ? JSON.stringify(entry.variants) : null,
+      pronunciation: entry.pronunciation ?? null,
+    };
+    await this.db.addWordListEntry(row);
     const cacheKey = this.getCacheKey(entry.sourceWord, entry.sourceLanguage, entry.targetLanguage);
     this.cache.set(cacheKey, entry);
   }
@@ -368,43 +284,36 @@ export class WordDatabaseService {
     targetLanguage: Language,
     entries: WordEntry[]
   ): Promise<BulkImportResult> {
-    const result: BulkImportResult = {
-      imported: 0,
-      skipped: 0,
-      errors: [],
-    };
-
-    await this.db.transaction(async () => {
-      for (const entry of entries) {
-        try {
-          await this.db.execute(DatabaseSchema.wordList.insert, [
-            entry.id,
-            entry.sourceWord,
-            entry.targetWord,
-            entry.sourceLanguage,
-            entry.targetLanguage,
-            entry.proficiencyLevel,
-            entry.frequencyRank,
-            entry.partOfSpeech,
-            entry.variants?.length ? JSON.stringify(entry.variants) : null,
-            entry.pronunciation || null,
-          ]);
-          result.imported++;
-        } catch (error) {
-          if (
-            error instanceof Error &&
-            (error.message.includes('UNIQUE') || error.message.includes('unique constraint'))
-          ) {
-            result.skipped++;
-          } else {
-            result.errors.push(
-              `Word "${entry.sourceWord}": ${error instanceof Error ? error.message : String(error)}`
-            );
-          }
-        }
+    const result: BulkImportResult = {imported: 0, skipped: 0, errors: []};
+    const operations: Array<{method: string; args: unknown[]}> = [];
+    const seen = new Set<string>();
+    for (const entry of entries) {
+      const id = entry.id ?? `${entry.sourceLanguage}_${entry.targetLanguage}_${entry.sourceWord}`;
+      if (seen.has(id)) {
+        result.skipped++;
+        continue;
       }
-    });
-
+      seen.add(id);
+      const row: WordListRow = {
+        id,
+        source_word: entry.sourceWord,
+        target_word: entry.targetWord,
+        source_lang: entry.sourceLanguage,
+        target_lang: entry.targetLanguage,
+        proficiency: entry.proficiencyLevel,
+        frequency_rank: entry.frequencyRank ?? null,
+        part_of_speech: entry.partOfSpeech ?? null,
+        variants: entry.variants?.length ? JSON.stringify(entry.variants) : null,
+        pronunciation: entry.pronunciation ?? null,
+      };
+      operations.push({method: 'addWordListEntry', args: [row]});
+      result.imported++;
+    }
+    try {
+      await this.db.runTransaction(operations);
+    } catch (error) {
+      result.errors.push(error instanceof Error ? error.message : String(error));
+    }
     this.cacheLoaded.set(`${sourceLanguage}_${targetLanguage}`, false);
     return result;
   }
@@ -424,46 +333,34 @@ export class WordDatabaseService {
     sourceLanguage: Language,
     targetLanguage: Language
   ): Promise<BulkImportResult> {
-    const result: BulkImportResult = {
-      imported: 0,
-      skipped: 0,
-      errors: [],
-    };
-
-    await this.db.transaction(async () => {
-      for (let i = 0; i < words.length; i++) {
-        const word = words[i];
-        try {
-          const id = `${sourceLanguage}_${targetLanguage}_${i + 1}`;
-          const rank = word.rank || i + 1;
-          const level = getProficiencyFromRank(rank);
-
-          await this.db.execute(DatabaseSchema.wordList.insert, [
-            id,
-            word.source.toLowerCase(),
-            word.target,
-            sourceLanguage,
-            targetLanguage,
-            level,
-            rank,
-            word.pos || null,
-            word.variants ? JSON.stringify(word.variants) : null,
-            word.pronunciation || null,
-          ]);
-          result.imported++;
-        } catch (error) {
-          if (error instanceof Error && error.message.includes('UNIQUE constraint')) {
-            result.skipped++;
-          } else {
-            result.errors.push(`Word "${word.source}": ${error}`);
-          }
-        }
-      }
-    });
-
-    // Invalidate cache for this language pair
+    const result: BulkImportResult = {imported: 0, skipped: 0, errors: []};
+    const operations: Array<{method: string; args: unknown[]}> = [];
+    for (let i = 0; i < words.length; i++) {
+      const word = words[i];
+      const id = `${sourceLanguage}_${targetLanguage}_${i + 1}`;
+      const rank = word.rank ?? i + 1;
+      const level = getProficiencyFromRank(rank);
+      const row: WordListRow = {
+        id,
+        source_word: word.source.toLowerCase(),
+        target_word: word.target,
+        source_lang: sourceLanguage,
+        target_lang: targetLanguage,
+        proficiency: level,
+        frequency_rank: rank,
+        part_of_speech: word.pos ?? null,
+        variants: word.variants ? JSON.stringify(word.variants) : null,
+        pronunciation: word.pronunciation ?? null,
+      };
+      operations.push({method: 'addWordListEntry', args: [row]});
+      result.imported++;
+    }
+    try {
+      await this.db.runTransaction(operations);
+    } catch (error) {
+      result.errors.push(error instanceof Error ? error.message : String(error));
+    }
     this.cacheLoaded.set(`${sourceLanguage}_${targetLanguage}`, false);
-
     return result;
   }
 
@@ -471,23 +368,14 @@ export class WordDatabaseService {
    * Clear all words for a language pair
    */
   async clearLanguagePair(sourceLanguage: Language, targetLanguage: Language): Promise<number> {
-    const result = await this.db.execute(
-      `DELETE FROM word_list WHERE source_lang = ? AND target_lang = ?`,
-      [sourceLanguage, targetLanguage]
-    );
-
-    // Clear cache
+    const count = await this.db.getWordListCount(sourceLanguage, targetLanguage);
+    await this.db.deleteWordListByPair(sourceLanguage, targetLanguage);
     this.cacheLoaded.set(`${sourceLanguage}_${targetLanguage}`, false);
-
-    // Remove from cache
     const prefix = `${sourceLanguage}_${targetLanguage}_`;
     for (const key of this.cache.keys()) {
-      if (key.startsWith(prefix)) {
-        this.cache.delete(key);
-      }
+      if (key.startsWith(prefix)) this.cache.delete(key);
     }
-
-    return result.rowsAffected;
+    return count;
   }
 
   /**

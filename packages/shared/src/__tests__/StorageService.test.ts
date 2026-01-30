@@ -4,12 +4,14 @@
 
 import {StorageService} from '../services/StorageService/StorageService';
 
-import type {VocabularyItem, ReadingStats} from '../types';
+import type {VocabularyItem, ReadingStats} from '../../types';
 
 jest.mock('../services/StorageService/DatabaseService', () => ({
   databaseService: {
     initialize: jest.fn().mockResolvedValue(undefined),
-    transaction: jest.fn((cb: () => Promise<void>) => cb()),
+    runTransaction: jest.fn().mockResolvedValue(undefined),
+    setPreference: jest.fn().mockResolvedValue(undefined),
+    getPreference: jest.fn().mockResolvedValue(null),
   },
 }));
 

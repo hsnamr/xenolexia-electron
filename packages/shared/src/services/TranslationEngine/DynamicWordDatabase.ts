@@ -13,8 +13,8 @@
  * - Caches translations for offline use
  */
 
-import {DatabaseSchema} from '../StorageService/DatabaseSchema';
 import {databaseService} from '../StorageService/DatabaseService';
+import type {WordListRow} from '../StorageService/DataStore.types';
 
 import {
   FrequencyListService,
@@ -238,29 +238,14 @@ export class DynamicWordDatabase {
    */
   async getStats(): Promise<DatabaseStats> {
     await this.initialize();
-
-    const totalResult = await this.db.getOne<{count: number}>(
-      'SELECT COUNT(*) as count FROM word_list'
-    );
-
-    const pairsResult = await this.db.getAll<{
-      source_lang: string;
-      target_lang: string;
-      count: number;
-    }>(
-      `SELECT source_lang, target_lang, COUNT(*) as count 
-       FROM word_list 
-       GROUP BY source_lang, target_lang`
-    );
-
-    const languagePairs = pairsResult.map(row => ({
+    const stats = await this.db.getWordListStats();
+    const languagePairs = stats.pairs.map((row) => ({
       source: row.source_lang as Language,
       target: row.target_lang as Language,
       count: row.count,
     }));
-
     return {
-      totalCachedWords: totalResult?.count || 0,
+      totalCachedWords: stats.total,
       languagePairs,
       lastUpdated: new Date().toISOString(),
     };
@@ -271,20 +256,13 @@ export class DynamicWordDatabase {
    */
   async clearCache(sourceLanguage?: Language, targetLanguage?: Language): Promise<void> {
     if (sourceLanguage && targetLanguage) {
-      await this.db.execute('DELETE FROM word_list WHERE source_lang = ? AND target_lang = ?', [
-        sourceLanguage,
-        targetLanguage,
-      ]);
-
-      // Clear memory cache for this pair
+      await this.db.deleteWordListByPair(sourceLanguage, targetLanguage);
       const prefix = `${sourceLanguage}_${targetLanguage}_`;
       for (const key of this.memoryCache.keys()) {
-        if (key.startsWith(prefix)) {
-          this.memoryCache.delete(key);
-        }
+        if (key.startsWith(prefix)) this.memoryCache.delete(key);
       }
     } else {
-      await this.db.execute('DELETE FROM word_list');
+      await this.db.deleteWordListByPair();
       this.memoryCache.clear();
     }
   }
@@ -337,14 +315,8 @@ export class DynamicWordDatabase {
     sourceLanguage: Language,
     targetLanguage: Language
   ): Promise<DynamicWordEntry | null> {
-    const row = await this.db.getOne<any>(DatabaseSchema.wordList.getByWord, [
-      word,
-      sourceLanguage,
-      targetLanguage,
-    ]);
-
+    const row = await this.db.getWordListEntry(word, sourceLanguage, targetLanguage);
     if (!row) return null;
-
     return this.rowToEntry(row);
   }
 
@@ -396,22 +368,21 @@ export class DynamicWordDatabase {
       cachedAt: new Date().toISOString(),
     };
 
-    // Save to database
     try {
-      await this.db.execute(DatabaseSchema.wordList.insert, [
-        entry.id,
-        entry.sourceWord,
-        entry.targetWord,
-        entry.sourceLanguage,
-        entry.targetLanguage,
-        entry.proficiencyLevel,
-        entry.frequencyRank,
-        entry.partOfSpeech,
-        null, // variants
-        null, // pronunciation
-      ]);
+      const row: WordListRow = {
+        id: entry.id,
+        source_word: entry.sourceWord,
+        target_word: entry.targetWord,
+        source_lang: entry.sourceLanguage,
+        target_lang: entry.targetLanguage,
+        proficiency: entry.proficiencyLevel,
+        frequency_rank: entry.frequencyRank,
+        part_of_speech: entry.partOfSpeech,
+        variants: null,
+        pronunciation: null,
+      };
+      await this.db.addWordListEntry(row);
     } catch (error) {
-      // Entry might already exist, ignore duplicate error
       if (!(error instanceof Error && error.message.includes('UNIQUE'))) {
         console.warn('Failed to cache translation:', error);
       }
@@ -426,17 +397,14 @@ export class DynamicWordDatabase {
     level: ProficiencyLevel,
     limit: number
   ): Promise<DynamicWordEntry[]> {
-    const rows = await this.db.getAll<any>(
-      `SELECT * FROM word_list 
-       WHERE source_lang = ? AND target_lang = ? AND proficiency = ?
-       ORDER BY RANDOM() LIMIT ?`,
-      [sourceLanguage, targetLanguage, level, limit]
-    );
-
-    return rows.map(row => this.rowToEntry(row));
+    const rows = await this.db.getWordListByLevel(sourceLanguage, targetLanguage, level, {
+      limit,
+      random: true,
+    });
+    return rows.map((row) => this.rowToEntry(row));
   }
 
-  private rowToEntry(row: any): DynamicWordEntry {
+  private rowToEntry(row: WordListRow): DynamicWordEntry {
     return {
       id: row.id,
       sourceWord: row.source_word,

@@ -278,13 +278,6 @@ function setupIpcHandlers() {
   ipcMain.handle('db:invoke', async (event, method, ...args) => {
     const db = getDatabaseService();
     await db.initialize();
-    if (method === 'transaction') {
-      const ops = args[0] || [];
-      if (ops.length > 0) {
-        await db.executeBatch(ops.map((o) => ({ sql: o.sql, params: o.params || [] })));
-      }
-      return undefined;
-    }
     const fn = db[method];
     if (typeof fn !== 'function') {
       throw new Error('Unknown db method: ' + method);

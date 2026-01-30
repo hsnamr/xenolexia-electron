@@ -9,8 +9,9 @@
   ],
   "scripts": {
     "test": "npm run test:unit",
-    "test:unit": "npm run test:unit:shared",
+    "test:unit": "npm run test:unit:shared && npm run test:unit:desktop",
     "test:unit:shared": "cd packages/shared && npm test",
+    "test:unit:desktop": "cd packages/desktop && npm test",
     "test:e2e": "playwright test",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx --fix",
     "lint:check": "eslint . --ext .js,.jsx,.ts,.tsx",
