@@ -33,6 +33,8 @@ export const EpubJsReader = forwardRef<EpubJsReaderHandle, EpubJsReaderProps>(
       display: (key?: string) => Promise<unknown>;
     } | null>(null);
     const blobUrlRef = useRef<string | null>(null);
+    const onLocationChangeRef = useRef(onLocationChange);
+    onLocationChangeRef.current = onLocationChange;
 
     const canGoPrev = useCallback(() => {
       const r = renditionRef.current;
@@ -60,8 +62,14 @@ export const EpubJsReader = forwardRef<EpubJsReaderHandle, EpubJsReaderProps>(
     useImperativeHandle(
       ref,
       () => ({
-        goPrev: () => renditionRef.current?.prev(),
-        goNext: () => renditionRef.current?.next(),
+        goPrev: () => {
+          const r = renditionRef.current;
+          if (r && typeof r.prev === 'function') r.prev();
+        },
+        goNext: () => {
+          const r = renditionRef.current;
+          if (r && typeof r.next === 'function') r.next();
+        },
         canGoPrev,
         canGoNext,
       }),
@@ -110,10 +118,10 @@ export const EpubJsReader = forwardRef<EpubJsReaderHandle, EpubJsReaderProps>(
           rendition.display();
 
           rendition.on('relocated', (location: {start: {index: number}; end: {index: number}}) => {
-            if (epubBook.spine && onLocationChange) {
+            if (epubBook.spine) {
               const total = epubBook.spine.length;
               const current = location?.start?.index ?? 0;
-              onLocationChange(current, total);
+              onLocationChangeRef.current?.(current, total);
             }
           });
         } catch (error) {
@@ -138,7 +146,7 @@ export const EpubJsReader = forwardRef<EpubJsReaderHandle, EpubJsReaderProps>(
           blobUrlRef.current = null;
         }
       };
-    }, [book?.filePath, book?.id, onLocationChange]);
+    }, [book?.filePath, book?.id]);
 
     return (
       <div

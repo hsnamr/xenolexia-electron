@@ -132,6 +132,10 @@ export function ReaderScreen(): React.JSX.Element {
     setShowControls(true);
   }, []);
 
+  const handleEpubLocationChange = useCallback((current: number, total: number) => {
+    setEpubLocation({current, total});
+  }, []);
+
   if (error) {
     return (
       <div className="reader-screen">
@@ -199,7 +203,7 @@ export function ReaderScreen(): React.JSX.Element {
           <EpubJsReader
             ref={epubReaderRef}
             book={book}
-            onLocationChange={(current, total) => setEpubLocation({current, total})}
+            onLocationChange={handleEpubLocationChange}
           />
         ) : isLoadingChapter ? (
           <div className="reader-loading-chapter">Loading chapter...</div>
