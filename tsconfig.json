@@ -1,45 +1,23 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
-  "display": "Xenolexia React Native",
+  "display": "Xenolexia Electron",
   "compilerOptions": {
-    // Language and Environment
     "target": "esnext",
-    "lib": ["es2022"],
-    "jsx": "react-native",
-    "types": ["jest"],
+    "lib": ["es2022", "dom"],
+    "jsx": "react-jsx",
+    "types": ["node"],
 
-    // Modules
     "module": "commonjs",
     "moduleResolution": "node",
     "resolveJsonModule": true,
     "isolatedModules": true,
 
-    // Path Aliases
     "baseUrl": ".",
-    "paths": {
-      "@/*": ["src/*"],
-      "@app/*": ["src/app/*"],
-      "@components/*": ["src/components/*"],
-      "@screens/*": ["src/screens/*"],
-      "@services/*": ["src/services/*"],
-      "@stores/*": ["src/stores/*"],
-      "@hooks/*": ["src/hooks/*"],
-      "@utils/*": ["src/utils/*"],
-      "@types/*": ["src/types/*"],
-      "@constants/*": ["src/constants/*"],
-      "@assets/*": ["src/assets/*"],
-      "@navigation/*": ["src/navigation/*"]
-    },
-
-    // Emit
     "noEmit": true,
-
-    // Interop
     "allowJs": true,
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
 
-    // Type Checking
     "strict": true,
     "noImplicitAny": true,
     "noImplicitReturns": true,
@@ -49,27 +27,14 @@
     "noFallthroughCasesInSwitch": true,
     "strictNullChecks": true,
     "strictFunctionTypes": true,
-    "strictBindCallApply": true,
-    "strictPropertyInitialization": true,
-    "useUnknownInCatchVariables": true,
-
-    // Additional Checks
-    "forceConsistentCasingInFileNames": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
   },
   "include": [
-    "src/**/*",
-    "App.tsx",
-    "index.js",
-    "__tests__/**/*",
+    "packages/**/*",
+    "e2e/**/*",
     "*.config.js",
     "*.config.ts"
   ],
-  "exclude": [
-    "node_modules",
-    "android",
-    "ios",
-    "coverage",
-    ".expo"
-  ]
+  "exclude": ["node_modules", "coverage"]
 }

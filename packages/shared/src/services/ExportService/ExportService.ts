@@ -152,18 +152,8 @@ class ExportService {
             shell.showItemInFolder(result.filePath);
           }
         } else {
-          // Fallback: try to use Share API if available (for mobile)
-          try {
-            const { Share } = require('react-native');
-            await Share.share({
-              url: `file://${result.filePath}`,
-              title: result.fileName,
-              message: `Xenolexia Vocabulary Export - ${result.itemCount} words`,
-            });
-          } catch (error) {
-            // Share not available, just return success
-            console.log('Share not available, file saved to:', result.filePath);
-          }
+          // Share not available; file was saved
+          console.log('File saved to:', result.filePath);
         }
       } catch (error) {
         // User cancelled share - not an error

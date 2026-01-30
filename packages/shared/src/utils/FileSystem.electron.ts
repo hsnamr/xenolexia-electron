@@ -1,6 +1,5 @@
 /**
- * File System - Electron version
- * Replaces react-native-fs
+ * File System - Electron version (Node/Electron APIs only)
  */
 
 /**
@@ -22,28 +21,22 @@ export async function readFileAsBase64(filePath: string): Promise<string> {
       throw new Error(`Failed to read file: ${filePath}. ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
-  
-  // Fallback to react-native-fs if available (for mobile - should not happen in Electron)
+
+  // Fallback: try fetch (for web/development)
   try {
-    const RNFS = require('react-native-fs');
-    return await RNFS.readFile(filePath, 'base64');
-  } catch (error) {
-    // If neither is available, try fetch (for web/development)
-    try {
-      const response = await fetch(filePath);
-      const blob = await response.blob();
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          const base64 = (reader.result as string).split(',')[1];
-          resolve(base64);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
-    } catch (fetchError) {
-      throw new Error(`Cannot read file: ${filePath}. No file system access available.`);
-    }
+    const response = await fetch(filePath);
+    const blob = await response.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = (reader.result as string).split(',')[1];
+        resolve(base64 ?? '');
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (fetchError) {
+    throw new Error(`Cannot read file: ${filePath}. No file system access available.`);
   }
 }
 
@@ -59,25 +52,12 @@ export async function readFileAsArrayBuffer(filePath: string): Promise<ArrayBuff
       throw new Error(`Failed to read file: ${filePath}. ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
-  
-  // Fallback to react-native-fs if available
+
   try {
-    const RNFS = require('react-native-fs');
-    const base64 = await RNFS.readFile(filePath, 'base64');
-    const binaryString = atob(base64);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-    return bytes.buffer;
-  } catch (error) {
-    // Try fetch as fallback
-    try {
-      const response = await fetch(filePath);
-      return await response.arrayBuffer();
-    } catch (fetchError) {
-      throw new Error(`Cannot read file: ${filePath}. No file system access available.`);
-    }
+    const response = await fetch(filePath);
+    return await response.arrayBuffer();
+  } catch (fetchError) {
+    throw new Error(`Cannot read file: ${filePath}. No file system access available.`);
   }
 }
 
@@ -93,19 +73,12 @@ export async function readFileAsText(filePath: string): Promise<string> {
       throw new Error(`Failed to read file: ${filePath}. ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
-  
-  // Fallback to react-native-fs if available
+
   try {
-    const RNFS = require('react-native-fs');
-    return await RNFS.readFile(filePath, 'utf8');
-  } catch (error) {
-    // Try fetch as fallback
-    try {
-      const response = await fetch(filePath);
-      return await response.text();
-    } catch (fetchError) {
-      throw new Error(`Cannot read file: ${filePath}. No file system access available.`);
-    }
+    const response = await fetch(filePath);
+    return await response.text();
+  } catch (fetchError) {
+    throw new Error(`Cannot read file: ${filePath}. No file system access available.`);
   }
 }
 
@@ -122,18 +95,8 @@ export async function writeFile(filePath: string, content: string | ArrayBuffer,
       throw new Error(`Failed to write file: ${filePath}. ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
-  
-  // Fallback to react-native-fs if available
-  try {
-    const RNFS = require('react-native-fs');
-    if (encoding === 'base64') {
-      await RNFS.writeFile(filePath, content as string, 'base64');
-    } else {
-      await RNFS.writeFile(filePath, content as string, 'utf8');
-    }
-  } catch (error) {
-    throw new Error(`Cannot write file: ${filePath}. No file system access available.`);
-  }
+
+  throw new Error(`Cannot write file: ${filePath}. No file system access available (Electron API only).`);
 }
 
 /**
@@ -148,14 +111,8 @@ export async function fileExists(filePath: string): Promise<boolean> {
       return false;
     }
   }
-  
-  // Fallback to react-native-fs if available
-  try {
-    const RNFS = require('react-native-fs');
-    return await RNFS.exists(filePath);
-  } catch (error) {
-    return false;
-  }
+
+  return false;
 }
 
 /**
@@ -180,18 +137,8 @@ export async function mkdir(dirPath: string, options?: { recursive?: boolean }):
       throw new Error(`Failed to create directory: ${dirPath}`);
     }
   }
-  
-  // Fallback to react-native-fs if available
-  try {
-    const RNFS = require('react-native-fs');
-    await RNFS.mkdir(dirPath);
-  } catch (error) {
-    // Directory might already exist
-    if (options?.recursive) {
-      return;
-    }
-    throw error;
-  }
+
+  throw new Error(`Cannot create directory: ${dirPath}. No file system access available (Electron API only).`);
 }
 
 /**
@@ -205,14 +152,8 @@ export async function getAppDataPath(): Promise<string> {
       return '/tmp/xenolexia';
     }
   }
-  
-  // Fallback
-  try {
-    const RNFS = require('react-native-fs');
-    return RNFS.DocumentDirectoryPath;
-  } catch (error) {
-    return '/tmp/xenolexia';
-  }
+
+  return '/tmp/xenolexia';
 }
 
 /**
@@ -232,22 +173,8 @@ export async function readDir(dirPath: string): Promise<Array<{name: string; pat
       return [];
     }
   }
-  
-  // Fallback to react-native-fs if available
-  try {
-    const RNFS = require('react-native-fs');
-    const files = await RNFS.readDir(dirPath);
-    return files.map((file: any) => ({
-      name: file.name,
-      path: file.path,
-      isFile: () => file.isFile(),
-      isDirectory: () => file.isDirectory(),
-      size: file.size || 0,
-      mtime: new Date(file.mtime || Date.now()),
-    }));
-  } catch (error) {
-    return [];
-  }
+
+  return [];
 }
 
 /**
@@ -263,12 +190,6 @@ export async function unlink(filePath: string): Promise<void> {
       throw new Error(`Failed to delete file: ${filePath}. ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
-  
-  // Fallback to react-native-fs if available
-  try {
-    const RNFS = require('react-native-fs');
-    await RNFS.unlink(filePath);
-  } catch (error) {
-    throw new Error(`Cannot delete file: ${filePath}. No file system access available.`);
-  }
+
+  throw new Error(`Cannot delete file: ${filePath}. No file system access available (Electron API only).`);
 }

@@ -12,13 +12,13 @@ try {
   // Platform info
   platform: process.platform,
 
-  // Menu actions
+  // Menu actions (callback receives event, action)
   onMenuAction: callback => {
-    ipcRenderer.on('menu-import-book', callback);
-    ipcRenderer.on('menu-about', callback);
-    ipcRenderer.on('menu-search-books', callback);
-    ipcRenderer.on('menu-statistics', callback);
-    ipcRenderer.on('menu-settings', callback);
+    ipcRenderer.on('menu-import-book', (e) => callback(e, 'menu-import-book'));
+    ipcRenderer.on('menu-about', (e) => callback(e, 'menu-about'));
+    ipcRenderer.on('menu-search-books', (e) => callback(e, 'menu-search-books'));
+    ipcRenderer.on('menu-statistics', (e) => callback(e, 'menu-statistics'));
+    ipcRenderer.on('menu-settings', (e) => callback(e, 'menu-settings'));
   },
 
   // File dialog
@@ -53,6 +53,10 @@ try {
 
   getBooksDirectory: () => {
     return ipcRenderer.invoke('app:getBooksDirectory');
+  },
+
+  dbInvoke: (method, ...args) => {
+    return ipcRenderer.invoke('db:invoke', method, ...args);
   },
 
   // Directory operations

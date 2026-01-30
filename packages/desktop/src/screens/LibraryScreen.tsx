@@ -3,7 +3,7 @@
  */
 
 import React, {useState, useCallback, useEffect} from 'react';
-import {useNavigate} from 'react-router-dom';
+import {useNavigate, useLocation} from 'react-router-dom';
 import {useLibraryStore} from '@xenolexia/shared/stores/libraryStore';
 import type {Book} from '@xenolexia/shared/types';
 import {Button, Card, PressableCard, Input, SearchInput} from '../components/ui';
@@ -51,32 +51,14 @@ export function LibraryScreen(): React.JSX.Element {
     }
   }, [isImporting, refreshBooks]);
 
-  // Handle menu actions from Electron
+  // When navigated from menu with openImport, open the import dialog
+  const openImportFromState = (location.state as {openImport?: boolean})?.openImport;
   useEffect(() => {
-    if (window.electronAPI) {
-      const handler = (event: any, action: string) => {
-        switch (action) {
-          case 'menu-import-book':
-            handleImportBook();
-            break;
-          case 'menu-search-books':
-            navigate('/discover');
-            break;
-          case 'menu-statistics':
-            navigate('/statistics');
-            break;
-          case 'menu-settings':
-            navigate('/settings');
-            break;
-          case 'menu-about':
-            navigate('/about');
-            break;
-        }
-      };
-      window.electronAPI.onMenuAction(handler);
-      // Cleanup would require storing the handler, but for now this works
+    if (openImportFromState) {
+      navigate('/', {replace: true, state: {}});
+      handleImportBook();
     }
-  }, [navigate, handleImportBook]);
+  }, [openImportFromState]); // eslint-disable-line react-hooks/exhaustive-deps -- only run when flag is set
 
   const filteredBooks = books.filter(
     book =>

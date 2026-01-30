@@ -25,6 +25,9 @@ export interface ElectronAPI {
   fileExists: (filePath: string) => Promise<boolean>;
   getAppDataPath: () => Promise<string>;
   getBooksDirectory: () => Promise<string>;
+
+  /** Database operations (renderer calls main process) */
+  dbInvoke: (method: string, ...args: unknown[]) => Promise<unknown>;
 }
 
 declare global {

@@ -1,6 +1,6 @@
 /**
  * Platform Detection - Electron version
- * Replaces react-native Platform
+ * Electron platform detection
  */
 
 export const Platform = {

@@ -30,7 +30,7 @@ This document outlines remaining work for the Xenolexia Electron app (Windows, m
 
 ## 🔶 Completed (remaining tasks)
 
-- **Package cleanup**: React Native / iOS / Android removed from root `package.json`; ESLint updated (no react-native plugin).
+- **Package cleanup**: iOS / Android / React Native removed; ESLint updated.
 - **Statistics chart**: “Reading over time” bar chart (last 7 days, words revealed) on Statistics screen.
 - **E2E tests**: Launch, #root content, Library/Onboarding content checks in `e2e/electron-app.spec.ts`.
 - **README/PLAN**: Electron-only note in README; roadmap updated; PLAN already desktop-only.

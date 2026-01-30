@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from 'react';
 
-import {BrowserRouter, Routes, Route, Navigate, useLocation} from 'react-router-dom';
+import {BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate} from 'react-router-dom';
 
 import {useUserStore} from '@xenolexia/shared/stores/userStore';
 
@@ -58,12 +58,52 @@ function AppRoutes(): React.JSX.Element {
   );
 }
 
+/** Registers Electron menu actions so Help > About, Tools > Statistics/Settings work from any screen */
+function MenuActionListener({children}: {children: React.ReactNode}): React.JSX.Element {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.electronAPI?.onMenuAction) return;
+
+    const handler = (_event: unknown, action: string) => {
+      switch (action) {
+        case 'menu-import-book':
+          navigate('/', {state: {openImport: true}});
+          break;
+        case 'menu-search-books':
+          navigate('/discover');
+          break;
+        case 'menu-statistics':
+          navigate('/statistics');
+          break;
+        case 'menu-settings':
+          navigate('/settings');
+          break;
+        case 'menu-about':
+          navigate('/about');
+          break;
+        default:
+          break;
+      }
+    };
+
+    window.electronAPI.onMenuAction(handler);
+    return () => {
+      // IPC listeners are not removed by preload; no-op cleanup
+    };
+  }, [navigate]);
+
+  return <>{children}</>;
+}
+
 function App(): React.JSX.Element {
   return (
     <BrowserRouter>
-      <OnboardingGuard>
-        <AppRoutes />
-      </OnboardingGuard>
+      <MenuActionListener>
+        <OnboardingGuard>
+          <AppRoutes />
+        </OnboardingGuard>
+      </MenuActionListener>
     </BrowserRouter>
   );
 }

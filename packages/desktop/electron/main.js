@@ -78,10 +78,11 @@ async function createWindow() {
   }
 
   // Load the app from built files (both dev and production use built files)
+  // main.js is in packages/desktop/electron/, so dist is at packages/desktop/dist/
   // When packaged, dist is in resources/dist relative to the app
   const htmlPath = app.isPackaged
     ? path.join(process.resourcesPath, 'dist', 'index.html')
-    : path.join(__dirname, '../../dist/index.html');
+    : path.join(__dirname, '..', 'dist', 'index.html');
   
   // Verify preload script exists
   const preloadPath = path.join(__dirname, 'preload.js');
@@ -132,6 +133,16 @@ async function createWindow() {
 
   mainWindow.on('closed', () => {
     mainWindow = null;
+  });
+
+  // Keep menu bar visible when entering full screen
+  mainWindow.on('enter-full-screen', () => {
+    mainWindow.setMenuBarVisibility(true);
+  });
+
+  // Re-apply application menu when leaving full screen (menu bar can disappear on Linux/Windows)
+  mainWindow.on('leave-full-screen', () => {
+    createMenu();
   });
 }
 
@@ -225,14 +236,20 @@ function setupIpcHandlers() {
   ipcMain.handle('file:readDir', async (event, dirPath) => {
     try {
       const entries = await fs.readdir(dirPath, { withFileTypes: true });
-      return entries.map(entry => ({
-        name: entry.name,
-        path: path.join(dirPath, entry.name),
-        isFile: () => entry.isFile(),
-        isDirectory: () => entry.isDirectory(),
-        size: entry.isFile() ? (await fs.stat(path.join(dirPath, entry.name))).size : 0,
-        mtime: entry.isFile() ? (await fs.stat(path.join(dirPath, entry.name))).mtime : new Date(),
-      }));
+      return Promise.all(
+        entries.map(async (entry) => {
+          const fullPath = path.join(dirPath, entry.name);
+          const stat = entry.isFile() ? await fs.stat(fullPath) : null;
+          return {
+            name: entry.name,
+            path: fullPath,
+            isFile: () => entry.isFile(),
+            isDirectory: () => entry.isDirectory(),
+            size: stat ? stat.size : 0,
+            mtime: stat ? stat.mtime : new Date(),
+          };
+        })
+      );
     } catch (error) {
       console.error('Failed to read directory:', error);
       throw error;
@@ -254,6 +271,34 @@ function setupIpcHandlers() {
       console.error('Failed to delete file:', error);
       throw error;
     }
+  });
+
+  // Database: renderer calls main so better-sqlite3 (native) runs only in main process
+  let databaseService = null;
+  function getDatabaseService() {
+    if (!databaseService) {
+      const sharedRoot = path.dirname(require.resolve('@xenolexia/shared/package.json'));
+      const dbPath = path.join(sharedRoot, 'src/services/StorageService/DatabaseService.electron.ts');
+      databaseService = require(dbPath).databaseService;
+    }
+    return databaseService;
+  }
+
+  ipcMain.handle('db:invoke', async (event, method, ...args) => {
+    const db = getDatabaseService();
+    await db.initialize();
+    if (method === 'transaction') {
+      const ops = args[0] || [];
+      if (ops.length > 0) {
+        await db.executeBatch(ops.map((o) => ({ sql: o.sql, params: o.params || [] })));
+      }
+      return undefined;
+    }
+    const fn = db[method];
+    if (typeof fn !== 'function') {
+      throw new Error('Unknown db method: ' + method);
+    }
+    return fn.apply(db, args);
   });
 }
 

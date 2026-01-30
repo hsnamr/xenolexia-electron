@@ -1,6 +1,6 @@
 /**
  * Electron Book Download Service - Wraps BookDownloadService for Electron
- * Uses Electron file system APIs instead of react-native-fs
+ * Uses Electron file system APIs
  */
 
 import {BookDownloadService} from '@xenolexia/shared/services/BookDownloadService';

@@ -1,6 +1,6 @@
 /**
  * AsyncStorage - Electron version using electron-store
- * Replaces @react-native-async-storage/async-storage
+ * Electron persistent storage (electron-store)
  */
 
 // Dynamic import to avoid requiring electron-store at module load time

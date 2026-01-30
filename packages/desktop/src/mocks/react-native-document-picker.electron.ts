@@ -1,5 +1,5 @@
 /**
- * Stub for react-native-document-picker (Electron uses showOpenDialog instead).
+ * Stub for document picker (Electron uses showOpenDialog instead).
  * Kept so shared ImportService can be bundled without resolving the RN package.
  */
 

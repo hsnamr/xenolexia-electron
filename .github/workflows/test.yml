@@ -30,13 +30,13 @@ jobs:
       - name: Run ESLint
         run: npm run lint
 
-      - name: Run tests with coverage
-        run: npm run test:coverage
+      - name: Run unit tests
+        run: npm run test:unit
 
-      - name: Upload coverage to Codecov
+      - name: Upload coverage to Codecov (if present)
         uses: codecov/codecov-action@v3
         with:
-          files: ./coverage/lcov.info
+          files: ./packages/shared/coverage/lcov.info
           fail_ci_if_error: false
           verbose: true
 

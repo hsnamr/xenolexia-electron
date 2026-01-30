@@ -2,9 +2,9 @@
  * Thumbnail Generator
  *
  * Generates thumbnails for book covers and other images.
- * Uses react-native-image-resizer for image manipulation.
+ * Uses platform image APIs for image manipulation.
  *
- * Note: In a production app, you'd use a library like react-native-image-resizer.
+ * Note: In a production app, use a platform-appropriate image library.
  * This implementation provides a stubbed version that works with the cache system.
  */
 
@@ -163,8 +163,7 @@ export class ThumbnailGenerator {
   /**
    * Resize an image
    *
-   * Note: In production, use react-native-image-resizer:
-   * import ImageResizer from 'react-native-image-resizer';
+   * Note: In production, use a platform image library for resizing.
    * const result = await ImageResizer.createResizedImage(
    *   sourcePath, width, height, format, quality, 0, undefined, false, { mode }
    * );
@@ -180,9 +179,9 @@ export class ThumbnailGenerator {
     const extension = format === 'png' ? '.png' : '.jpg';
     const tempPath = `${this.thumbnailsDir}/temp_${Date.now()}${extension}`;
 
-    // In a real implementation, we'd resize here using react-native-image-resizer
+    // In a real implementation, resize here using a platform image library
     // For now, just copy the original
-    // TODO: Add actual image resizing with react-native-image-resizer
+    // TODO: Add actual image resizing with platform image library
 
     // Copy source to temp (read and write)
     const sourceBuffer = await readFileAsBase64(sourcePath);
@@ -199,7 +198,7 @@ export class ThumbnailGenerator {
   /**
    * Get dimensions of an image
    *
-   * Note: In production, use react-native-image-size or similar
+   * Note: In production, use an image-size library or similar
    */
   async getImageDimensions(imagePath: string): Promise<ImageDimensions | null> {
     try {
@@ -209,7 +208,7 @@ export class ThumbnailGenerator {
         return null;
       }
 
-      // TODO: Use react-native-image-size to get actual dimensions
+      // TODO: Use image-size library to get actual dimensions
       // For now, return default dimensions
       return {width: 300, height: 450};
     } catch (error) {

@@ -149,40 +149,8 @@ export class ImportService {
         };
       }
 
-      // Fallback to DocumentPicker if available (for mobile)
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-var-requires -- optional RN dependency
-        const DocumentPicker = require('react-native-document-picker');
-        const result = await DocumentPicker.pick({
-          type: [
-            DocumentPicker.types.epub,
-            DocumentPicker.types.plainText,
-            DocumentPicker.types.allFiles,
-          ],
-          copyTo: 'cachesDirectory',
-          allowMultiSelection: false,
-        });
-
-        const file = result[0];
-        const extension = this.getFileExtension(file.name || '');
-        if (!this.isSupportedFormat(extension)) {
-          throw new Error(
-            `Unsupported file format: ${extension}. Supported formats: ${SUPPORTED_EXTENSIONS.join(', ')}`
-          );
-        }
-
-        return {
-          uri: file.fileCopyUri || file.uri,
-          name: file.name || 'Unknown',
-          size: file.size || 0,
-          type: file.type,
-        };
-      } catch (error: any) {
-        if (DocumentPicker?.isCancel?.(error)) {
-          return null;
-        }
-        throw error;
-      }
+      // Not Electron: no file picker available
+      throw new Error('File picker is only available in the Electron desktop app.');
     } catch (error) {
       // User cancelled or error occurred
       if (error instanceof Error && error.message.includes('cancelled')) {

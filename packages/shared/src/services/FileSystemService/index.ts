@@ -3,7 +3,7 @@
  * 
  * Provides file system access for storing books.
  * On web, uses the File System Access API.
- * On native, uses react-native-fs.
+ * On Electron, uses Electron file APIs.
  */
 
 export { FileSystemService } from './FileSystemService.web';

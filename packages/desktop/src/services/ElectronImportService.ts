@@ -62,7 +62,7 @@ export async function importBookFromFile(
     await writeFileToAppData(targetPath, fileContent);
 
     // Parse the book using BookParserService directly
-    // ImportService uses react-native-fs which doesn't work in Electron
+    // ImportService file handling is delegated to Electron APIs
     // So we'll parse the file directly
     onProgress?.({
       status: 'parsing',

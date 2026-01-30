@@ -1,5 +1,5 @@
 /**
- * Electron mock for react-native-fs
+ * Electron file system stub (used when code expects a generic FS API)
  * Uses Electron's file system APIs via IPC
  */
 

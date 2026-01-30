@@ -2,14 +2,14 @@
   "name": "xenolexia-desktop",
   "version": "0.1.0",
   "description": "Xenolexia Electron Desktop App",
-  "main": "electron/main.js",
+  "main": "electron/run.js",
   "homepage": "./",
   "private": true,
   "scripts": {
     "build:assets": "ELECTRON=true webpack --mode production",
-    "electron": "electron .",
-    "electron:dev": "ELECTRON=true webpack --mode development && NODE_ENV=development electron .",
-    "electron:test": "npm run build:assets && electron .",
+    "electron": "ELECTRON_DISABLE_SANDBOX=1 electron .",
+    "electron:dev": "ELECTRON=true webpack --mode development && NODE_ENV=development ELECTRON_DISABLE_SANDBOX=1 electron .",
+    "electron:test": "npm run build:assets && ELECTRON_DISABLE_SANDBOX=1 electron .",
     "electron:build": "npm run build:assets && electron-builder",
     "electron:build:linux": "npm run build:assets && electron-builder --linux",
     "electron:build:mac": "npm run build:assets && electron-builder --mac",
@@ -26,6 +26,7 @@
     "react-router-dom": "^6.26.0"
   },
   "devDependencies": {
+    "tsx": "^4.19.0",
     "@babel/core": "^7.24.7",
     "@babel/plugin-transform-runtime": "^7.28.5",
     "@babel/preset-env": "^7.24.7",

@@ -14,8 +14,8 @@
     "test:e2e": "playwright test",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx --fix",
     "lint:check": "eslint . --ext .js,.jsx,.ts,.tsx",
-    "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json}\" \"packages/**/*.{ts,tsx,js,jsx,json}\" \"*.{ts,tsx,js,jsx,json,md}\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx,js,jsx,json}\" \"packages/**/*.{ts,tsx,js,jsx,json}\" \"*.{ts,tsx,js,jsx,json,md}\"",
+    "format": "prettier --write \"packages/**/*.{ts,tsx,js,jsx,json}\" \"*.{ts,tsx,js,jsx,json,md}\" \"e2e/**/*.ts\"",
+    "format:check": "prettier --check \"packages/**/*.{ts,tsx,js,jsx,json}\" \"*.{ts,tsx,js,jsx,json,md}\" \"e2e/**/*.ts\"",
     "typecheck": "tsc --noEmit",
     "validate": "npm run typecheck && npm run lint:check && npm run format:check",
     "prepare": "husky install",
@@ -26,13 +26,18 @@
     "electron:build:mac": "cd packages/desktop && npm run electron:build:mac",
     "electron:build:win": "cd packages/desktop && npm run electron:build:win",
     "build": "npm run electron:build",
+    "build:assets": "cd packages/desktop && npm run build:assets",
     "build:windows": "npm run electron:build:win",
     "build:macos": "npm run electron:build:mac",
     "build:linux": "npm run electron:build:linux",
     "build:linux:deb": "cd packages/desktop && npm run build:linux:deb",
     "build:linux:rpm": "cd packages/desktop && npm run build:linux:rpm",
     "build:linux:arch": "cd packages/desktop && npm run build:linux:arch",
-    "build:linux:tarball": "cd packages/desktop && npm run build:linux:tarball"
+    "build:linux:tarball": "cd packages/desktop && npm run build:linux:tarball",
+    "rebuild": "electron-rebuild -f -w better-sqlite3"
+  },
+  "optionalDependencies": {
+    "@electron/rebuild": "^4.0.0"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.51.1",
@@ -65,6 +70,7 @@
     "buffer": "^6.0.3",
     "crypto-browserify": "^3.12.1",
     "electron": "^40.0.0",
+    "electron-rebuild": "^3.2.9",
     "electron-builder": "^26.4.0",
     "eslint": "^8.57.0",
     "eslint-config-prettier": "^9.1.0",

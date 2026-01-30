@@ -9,8 +9,7 @@ const isElectron = process.env.ELECTRON === 'true';
 // Babel loader configuration
 const babelLoaderConfiguration = {
   test: /\.(js|jsx|ts|tsx)$/,
-  exclude:
-    /node_modules\/(?!(react-native-reanimated|react-native-gesture-handler|react-native-screens|react-native-safe-area-context|@react-navigation|react-native-svg|nativewind)\/).*/,
+  exclude: /node_modules/,
   use: {
     loader: 'babel-loader',
     options: {
@@ -66,8 +65,6 @@ module.exports = {
       '@navigation': path.resolve(appDirectory, 'src/navigation'),
       '@theme': path.resolve(appDirectory, 'src/theme'),
       '@app': path.resolve(appDirectory, 'src/app'),
-      'react-native-fs': path.resolve(__dirname, 'src/mocks/react-native-fs.electron.ts'),
-      'react-native-document-picker': path.resolve(__dirname, 'src/mocks/react-native-document-picker.electron.ts'),
       'empty-node-fs': path.resolve(__dirname, 'src/mocks/empty-node-module.js'),
       'node:assert': 'assert',
       'node:crypto': 'crypto',
@@ -94,6 +91,15 @@ module.exports = {
     new webpack.DefinePlugin({
       __DEV__: JSON.stringify(isDev),
     }),
+    // Provide global process for Node polyfills (e.g. util) that expect it
+    new webpack.ProvidePlugin({
+      process: require.resolve('process/browser.js'),
+    }),
+    // Use IPC stub for DatabaseService in renderer so better-sqlite3 (native) never runs in renderer
+    new webpack.NormalModuleReplacementPlugin(
+      /[\\/]DatabaseService\.electron(\.ts)?$/,
+      path.resolve(__dirname, 'src/services/DatabaseService.renderer.ts'),
+    ),
     // Rewrite node: protocol requests to polyfill paths so webpack doesn't hit UnhandledSchemeError
     new webpack.NormalModuleReplacementPlugin(/^node:/, (resource) => {
       const name = resource.request.slice(5); // 'node:assert' -> 'assert'

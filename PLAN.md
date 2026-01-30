@@ -69,13 +69,13 @@ This document outlines the implementation plan for **Xenolexia**, a **desktop-on
 
 ### Storage & Database
 
-- **better-sqlite3**: ^11.0.0 (replaces react-native-sqlite-storage)
-- **electron-store**: ^10.0.0 (replaces @react-native-async-storage/async-storage)
+- **better-sqlite3**: ^11.0.0
+- **electron-store**: ^10.0.0
 
 ### File System
 
-- **Node.js fs/promises**: Native (replaces react-native-fs)
-- **Electron dialog**: Native (replaces react-native-document-picker)
+- **Node.js fs/promises**: Native
+- **Electron dialog**: Native
 
 ### Book Parsing
 
