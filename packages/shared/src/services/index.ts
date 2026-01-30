@@ -2,7 +2,7 @@
  * Export all services
  */
 
-export {BookParserService, EPUBParser, TXTParser, FB2Parser, MOBIParser} from './BookParser';
+export {BookParserService, EPUBParser, TXTParser, MOBIParser} from './BookParser';
 export type {IBookParser} from './BookParser';
 
 // Translation Engine (core)

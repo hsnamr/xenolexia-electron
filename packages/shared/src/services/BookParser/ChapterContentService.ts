@@ -107,6 +107,9 @@ export class ChapterContentService {
       // Continue with original HTML if image processing fails
     }
 
+    // Strip any remaining /reader/ URLs (e.g. in url() or unhandled img) to avoid file:// requests in Electron
+    html = this.stripReaderUrls(html);
+
     // Ensure we have content
     if (!html || html.trim().length === 0) {
       html = '<p>No content available for this chapter.</p>';
@@ -170,13 +173,38 @@ export class ChapterContentService {
             fullMatch,
             fullMatch.replace(src, dataUrl)
           );
+        } else {
+          // Image not in zip (e.g. absolute path like /reader/...); use placeholder to avoid file:// request
+          const placeholder = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+          processedHtml = processedHtml.replace(
+            fullMatch,
+            fullMatch.replace(src, placeholder)
+          );
         }
       } catch (error) {
         console.warn('Failed to process image:', src, error);
+        const placeholder = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+        processedHtml = processedHtml.replace(
+          fullMatch,
+          fullMatch.replace(src, placeholder)
+        );
       }
     }
 
     return processedHtml;
+  }
+
+  /** 1x1 transparent GIF data URL - used to avoid file:// requests for unresolved images */
+  private static readonly PLACEHOLDER_IMAGE =
+    'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+
+  /**
+   * Strip /reader/ URLs from HTML (e.g. from url() or img src) to avoid file:// ERR_FILE_NOT_FOUND in Electron
+   */
+  private stripReaderUrls(html: string): string {
+    return html
+      .replace(/src=["']\/reader\/[^"']*["']/gi, `src="${ChapterContentService.PLACEHOLDER_IMAGE}"`)
+      .replace(/url\(["']?\/reader\/[^"')]*["']?\)/gi, `url("${ChapterContentService.PLACEHOLDER_IMAGE}")`);
   }
 
   /**

@@ -52,7 +52,6 @@ export const PROFICIENCY_LEVELS = {
  */
 export const SUPPORTED_FORMATS = {
   epub: {name: 'EPUB', extension: '.epub', mimeType: 'application/epub+zip'},
-  fb2: {name: 'FictionBook', extension: '.fb2', mimeType: 'application/x-fictionbook+xml'},
   mobi: {name: 'Mobipocket', extension: '.mobi', mimeType: 'application/x-mobipocket-ebook'},
   txt: {name: 'Plain Text', extension: '.txt', mimeType: 'text/plain'},
 } as const;

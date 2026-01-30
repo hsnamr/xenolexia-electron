@@ -91,7 +91,7 @@ export async function downloadBook(
     if (!format) {
       return {
         success: false,
-        error: 'Unsupported file format. Only EPUB, FB2, MOBI, and TXT are supported.',
+        error: 'Unsupported file format. Only EPUB, MOBI, and TXT are supported.',
       };
     }
 
@@ -209,14 +209,12 @@ export async function downloadBook(
 /**
  * Detect file format from URL
  */
-function detectFormat(url: string): 'epub' | 'mobi' | 'fb2' | 'txt' | null {
+function detectFormat(url: string): 'epub' | 'mobi' | 'txt' | null {
   const urlLower = url.toLowerCase();
   if (urlLower.includes('.epub') || urlLower.includes('epub')) {
     return 'epub';
   } else if (urlLower.includes('.mobi') || urlLower.includes('mobi')) {
     return 'mobi';
-  } else if (urlLower.includes('.fb2') || urlLower.includes('fb2')) {
-    return 'fb2';
   } else if (urlLower.includes('.txt') || urlLower.includes('text')) {
     return 'txt';
   }

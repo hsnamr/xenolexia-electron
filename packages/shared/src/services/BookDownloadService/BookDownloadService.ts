@@ -240,7 +240,7 @@ export class BookDownloadService {
       if (!format) {
         return {
           success: false,
-          error: 'Unsupported file format. Only EPUB, FB2, MOBI, and TXT are supported.',
+          error: 'Unsupported file format. Only EPUB, MOBI, and TXT are supported.',
         };
       }
 
@@ -644,8 +644,6 @@ export class BookDownloadService {
     switch (format) {
       case 'epub':
         return [{description: 'EPUB files', accept: {'application/epub+zip': ['.epub']}}];
-      case 'fb2':
-        return [{description: 'FB2 files', accept: {'application/x-fictionbook+xml': ['.fb2']}}];
       case 'mobi':
         return [{description: 'MOBI files', accept: {'application/x-mobipocket-ebook': ['.mobi']}}];
       case 'txt':
@@ -1034,7 +1032,6 @@ export class BookDownloadService {
   static detectFormat(pathOrUrl: string): BookFormat | null {
     const lower = pathOrUrl.toLowerCase();
     if (lower.endsWith('.epub')) return 'epub';
-    if (lower.endsWith('.fb2')) return 'fb2';
     if (lower.endsWith('.mobi') || lower.endsWith('.azw') || lower.endsWith('.azw3')) return 'mobi';
     if (lower.endsWith('.txt')) return 'txt';
     return null;

@@ -2,7 +2,7 @@
  * Import Service
  *
  * Handles importing book files from device storage into the app.
- * Supports EPUB, MOBI, FB2, and TXT formats.
+ * Supports EPUB, MOBI, and TXT formats.
  */
 
 import {v4 as uuidv4} from 'uuid';
@@ -118,10 +118,9 @@ export class ImportService {
       if (typeof window !== 'undefined' && (window as any).electronAPI) {
         const result = await (window as any).electronAPI.showOpenDialog({
           filters: [
-            {name: 'Ebooks', extensions: ['epub', 'mobi', 'fb2', 'txt']},
+            {name: 'Ebooks', extensions: ['epub', 'mobi', 'txt']},
             {name: 'EPUB', extensions: ['epub']},
             {name: 'MOBI', extensions: ['mobi']},
-            {name: 'FB2', extensions: ['fb2']},
             {name: 'Text', extensions: ['txt']},
             {name: 'All Files', extensions: ['*']},
           ],
@@ -167,7 +166,6 @@ export class ImportService {
     const mimeTypes: Record<string, string> = {
       epub: 'application/epub+zip',
       mobi: 'application/x-mobipocket-ebook',
-      fb2: 'application/x-fictionbook+xml',
       txt: 'text/plain',
     };
     return mimeTypes[extension.toLowerCase()] || 'application/octet-stream';
@@ -537,8 +535,6 @@ export class ImportService {
       case '.azw':
       case '.azw3':
         return 'mobi';
-      case '.fb2':
-        return 'fb2';
       case '.txt':
         return 'txt';
       default:

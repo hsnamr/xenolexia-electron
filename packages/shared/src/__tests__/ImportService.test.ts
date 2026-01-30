@@ -88,11 +88,10 @@ describe('ImportService', () => {
       expect(progressCallback).toHaveBeenCalled();
     });
 
-    it('should handle different file formats (EPUB, TXT, FB2, MOBI)', async () => {
+    it('should handle different file formats (EPUB, TXT, MOBI)', async () => {
       const formats = [
         {name: 'book.epub', expectedFormat: 'epub'},
         {name: 'book.txt', expectedFormat: 'txt'},
-        {name: 'book.fb2', expectedFormat: 'fb2'},
         {name: 'book.mobi', expectedFormat: 'mobi'},
       ];
 

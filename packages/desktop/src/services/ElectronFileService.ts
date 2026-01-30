@@ -16,7 +16,7 @@ export async function openFileDialog(): Promise<ElectronFile | null> {
     // Fallback for web/development
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.epub,.mobi,.fb2,.txt';
+    input.accept = '.epub,.mobi,.txt';
     
     return new Promise((resolve) => {
       input.onchange = (e) => {
@@ -38,10 +38,9 @@ export async function openFileDialog(): Promise<ElectronFile | null> {
 
   return window.electronAPI.showOpenDialog({
     filters: [
-      {name: 'Ebooks', extensions: ['epub', 'mobi', 'fb2', 'txt']},
+      {name: 'Ebooks', extensions: ['epub', 'mobi', 'txt']},
       {name: 'EPUB', extensions: ['epub']},
       {name: 'MOBI', extensions: ['mobi']},
-      {name: 'FB2', extensions: ['fb2']},
       {name: 'Text', extensions: ['txt']},
       {name: 'All Files', extensions: ['*']},
     ],

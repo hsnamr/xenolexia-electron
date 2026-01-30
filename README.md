@@ -24,7 +24,7 @@ _Hover "casa" → reveals "house"_
 
 ### Core Reading
 
-- **Multi-format**: EPUB, TXT, FB2, MOBI
+- **Multi-format**: EPUB, TXT, MOBI (epub.js for EPUB; @lingo-reader/mobi-parser for MOBI; trivial TXT)
 - **Customizable reader**: Fonts, themes (light/dark/sepia), margins, line spacing
 - **Progress**: Bookmarking and progress tracking
 - **Hover-to-reveal**: Translation popup on hover (desktop)
@@ -70,7 +70,7 @@ _Hover "casa" → reveals "house"_
 | **Language**     | TypeScript 5.x                      |
 | **State**        | Zustand, @tanstack/react-query      |
 | **Storage**      | better-sqlite3, electron-store      |
-| **Book parsing** | epub.js, jszip, custom FB2/MOBI/TXT |
+| **Book parsing** | epub.js (EPUB), @lingo-reader/mobi-parser (MOBI), TXT |
 | **Styling**      | CSS Modules                         |
 | **Testing**      | Jest (unit), Playwright (E2E)       |
 | **Build**        | Webpack, electron-builder           |

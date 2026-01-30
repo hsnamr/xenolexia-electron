@@ -2,8 +2,12 @@
  * Electron Import Service - Wraps ImportService for Electron with file dialog
  */
 
-import {ImportService} from '@xenolexia/shared/services/ImportService';
-import type {ImportProgress, ImportResult, ImportOptions} from '@xenolexia/shared/services/ImportService';
+import {
+  BookParserService,
+  MetadataExtractor,
+  extractEPUBMetadata,
+} from '@xenolexia/shared/services/BookParser';
+import type {ImportProgress} from '@xenolexia/shared/services/ImportService';
 import {openFileDialog, readFileAsArrayBuffer, getAppDataPath, writeFileToAppData} from './ElectronFileService';
 import {useLibraryStore} from '@xenolexia/shared/stores/libraryStore';
 import type {Book} from '@xenolexia/shared/types';
@@ -71,10 +75,6 @@ export async function importBookFromFile(
       currentStep: 'Parsing book...',
     });
 
-    // Import BookParserService and MetadataExtractor
-    const {BookParserService} = await import('@xenolexia/shared/services/BookParser');
-    const {MetadataExtractor, extractEPUBMetadata} = await import('@xenolexia/shared/services/BookParser');
-    
     // Parse metadata based on format
     let metadata: {title: string; author: string; language?: string};
     try {
@@ -87,8 +87,7 @@ export async function importBookFromFile(
         };
       } else {
         // For other formats, use BookParserService
-        const format = fileExtension.toLowerCase() === '.mobi' ? 'mobi' :
-                       fileExtension.toLowerCase() === '.fb2' ? 'fb2' : 'txt';
+        const format = fileExtension.toLowerCase() === '.mobi' ? 'mobi' : 'txt';
         const parser = BookParserService.getParser(targetPath, format as any);
         const parsed = await parser.parse(targetPath);
         metadata = {
@@ -110,7 +109,6 @@ export async function importBookFromFile(
     let coverPath: string | undefined;
     if (fileExtension === '.epub') {
       try {
-        const {MetadataExtractor} = await import('@xenolexia/shared/services/BookParser');
         const extractor = new MetadataExtractor();
         try {
           await extractor.extractFromFile(targetPath);
@@ -126,8 +124,7 @@ export async function importBookFromFile(
 
     // Determine format from extension (remove leading dot)
     const format = fileExtension.toLowerCase() === '.epub' ? 'epub' :
-                   fileExtension.toLowerCase() === '.mobi' ? 'mobi' :
-                   fileExtension.toLowerCase() === '.fb2' ? 'fb2' : 'txt';
+                   fileExtension.toLowerCase() === '.mobi' ? 'mobi' : 'txt';
 
     // Create Book object
     const book: Book = {
@@ -186,7 +183,6 @@ function getMimeType(extension: string): string {
   const mimeTypes: Record<string, string> = {
     '.epub': 'application/epub+zip',
     '.mobi': 'application/x-mobipocket-ebook',
-    '.fb2': 'application/x-fictionbook+xml',
     '.txt': 'text/plain',
   };
   return mimeTypes[extension.toLowerCase()] || 'application/octet-stream';

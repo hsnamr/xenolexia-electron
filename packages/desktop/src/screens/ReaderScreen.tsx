@@ -2,7 +2,7 @@
  * Reader Screen - React DOM version
  */
 
-import React, {useState, useCallback, useEffect} from 'react';
+import React, {useState, useCallback, useEffect, useRef} from 'react';
 
 import {useLibraryStore} from '@xenolexia/shared/stores/libraryStore';
 import {useReaderStore} from '@xenolexia/shared/stores/readerStore';
@@ -10,6 +10,7 @@ import {useVocabularyStore} from '@xenolexia/shared/stores/vocabularyStore';
 import {useParams, useNavigate} from 'react-router-dom';
 import {v4 as uuidv4} from 'uuid';
 
+import {EpubJsReader, type EpubJsReaderHandle} from '../components/EpubJsReader';
 import {ReaderContent} from './ReaderContent';
 
 import type {ForeignWordData, VocabularyItem} from '@xenolexia/shared/types';
@@ -42,18 +43,33 @@ export function ReaderScreen(): React.JSX.Element {
   const [selectedWord, setSelectedWord] = useState<ForeignWordData | null>(null);
   const [showControls, setShowControls] = useState(true);
   const [showReaderSettings, setShowReaderSettings] = useState(false);
+  const loadingBookIdRef = useRef<string | null>(null);
+  const epubReaderRef = useRef<EpubJsReaderHandle>(null);
+  const [epubLocation, setEpubLocation] = useState<{current: number; total: number} | null>(null);
 
+  // Only re-run when bookId changes; ref guard prevents double load (e.g. React Strict Mode)
+  // For EPUB we use epub.js (open-source library) and skip the custom parser
   useEffect(() => {
-    if (bookId && book) {
-      loadBook(book);
+    if (!bookId) return;
+    if (loadingBookIdRef.current === bookId) return;
+    loadingBookIdRef.current = bookId;
+    const bookToLoad = getBook(bookId);
+    if (bookToLoad) {
+      if (bookToLoad.format === 'epub') {
+        setEpubLocation(null);
+        return;
+      }
+      loadBook(bookToLoad);
     }
     return () => {
+      loadingBookIdRef.current = null;
+      setEpubLocation(null);
       closeBook();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bookId, book]);
+  }, [bookId, getBook, loadBook, closeBook]);
 
   // Keyboard shortcuts: next/prev chapter, toggle controls
+  const isEpub = book?.format === 'epub';
   useEffect(() => {
     if (!book || selectedWord || showReaderSettings) return;
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -62,12 +78,14 @@ export function ReaderScreen(): React.JSX.Element {
         case 'ArrowRight':
         case 'PageDown':
           e.preventDefault();
-          goToNextChapter();
+          if (isEpub) epubReaderRef.current?.goNext();
+          else goToNextChapter();
           break;
         case 'ArrowLeft':
         case 'PageUp':
           e.preventDefault();
-          goToPreviousChapter();
+          if (isEpub) epubReaderRef.current?.goPrev();
+          else goToPreviousChapter();
           break;
         case 'c':
         case 'C':
@@ -81,7 +99,7 @@ export function ReaderScreen(): React.JSX.Element {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [book, selectedWord, showReaderSettings, goToNextChapter, goToPreviousChapter]);
+  }, [book, selectedWord, showReaderSettings, isEpub, goToNextChapter, goToPreviousChapter]);
 
   const handleBack = useCallback(() => {
     navigate('/');
@@ -125,7 +143,15 @@ export function ReaderScreen(): React.JSX.Element {
     );
   }
 
-  if (isLoading || !book) {
+  const isEpubReader = book?.format === 'epub';
+  if (!book) {
+    return (
+      <div className="reader-screen">
+        <div className="reader-loading">Loading book...</div>
+      </div>
+    );
+  }
+  if (!isEpubReader && (isLoading || !currentBook)) {
     return (
       <div className="reader-screen">
         <div className="reader-loading">Loading book...</div>
@@ -143,7 +169,11 @@ export function ReaderScreen(): React.JSX.Element {
             ← Back
           </button>
           <div className="reader-header-center">
-            <h2>{currentChapter?.title || book.title}</h2>
+            <h2>
+              {isEpubReader
+                ? (epubLocation ? `Section ${epubLocation.current + 1} of ${epubLocation.total}` : book.title)
+                : (currentChapter?.title || book.title)}
+            </h2>
           </div>
           <button onClick={() => setShowReaderSettings(true)} className="reader-settings-button">
             ⚙️
@@ -154,14 +184,24 @@ export function ReaderScreen(): React.JSX.Element {
       <div
         className="reader-content"
         onClick={() => setShowControls(!showControls)}
-        style={{
-          fontSize: `${settings.fontSize}px`,
-          fontFamily: settings.fontFamily,
-          lineHeight: settings.lineHeight,
-          padding: `0 ${settings.marginHorizontal}px`,
-        }}
+        style={
+          isEpubReader
+            ? {flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0}
+            : {
+                fontSize: `${settings.fontSize}px`,
+                fontFamily: settings.fontFamily,
+                lineHeight: settings.lineHeight,
+                padding: `0 ${settings.marginHorizontal}px`,
+              }
+        }
       >
-        {isLoadingChapter ? (
+        {isEpubReader ? (
+          <EpubJsReader
+            ref={epubReaderRef}
+            book={book}
+            onLocationChange={(current, total) => setEpubLocation({current, total})}
+          />
+        ) : isLoadingChapter ? (
           <div className="reader-loading-chapter">Loading chapter...</div>
         ) : processedHtml ? (
           <ReaderContent
@@ -180,20 +220,32 @@ export function ReaderScreen(): React.JSX.Element {
       {showControls && (
         <div className="reader-footer">
           <button
-            onClick={goToPreviousChapter}
-            disabled={!currentChapter || currentChapter.index === 0}
+            onClick={() => (isEpubReader ? epubReaderRef.current?.goPrev() : goToPreviousChapter())}
+            disabled={
+              isEpubReader
+                ? (epubLocation?.current ?? 0) <= 0
+                : !currentChapter || currentChapter.index === 0
+            }
           >
             ← Previous
           </button>
           <div className="reader-progress">
-            {chapters.length > 0
-              ? Math.round((((currentChapter?.index || 0) + 1) / chapters.length) * 100)
-              : 0}
+            {isEpubReader && epubLocation
+              ? epubLocation.total > 0
+                ? Math.round(((epubLocation.current + 1) / epubLocation.total) * 100)
+                : 0
+              : chapters.length > 0
+                ? Math.round((((currentChapter?.index || 0) + 1) / chapters.length) * 100)
+                : 0}
             %
           </div>
           <button
-            onClick={goToNextChapter}
-            disabled={!currentChapter || currentChapter.index >= chapters.length - 1}
+            onClick={() => (isEpubReader ? epubReaderRef.current?.goNext() : goToNextChapter())}
+            disabled={
+              isEpubReader
+                ? (epubLocation?.current ?? 0) >= Math.max(0, (epubLocation?.total ?? 1) - 1)
+                : !currentChapter || currentChapter.index >= chapters.length - 1
+            }
           >
             Next →
           </button>

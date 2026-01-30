@@ -108,7 +108,7 @@ export function getLanguageName(code: Language): string {
 // Book Types
 // ============================================================================
 
-export type BookFormat = 'epub' | 'fb2' | 'mobi' | 'txt';
+export type BookFormat = 'epub' | 'mobi' | 'txt';
 
 export interface Book {
   id: string;

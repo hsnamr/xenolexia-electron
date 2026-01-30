@@ -6,7 +6,6 @@ import type {BookFormat, ParsedBook} from '../types/index';
 import type {IBookParser, ParserOptions} from './types';
 import {EPUBParser} from './EPUBParser';
 import {TXTParser} from './TXTParser';
-import {FB2Parser} from './FB2Parser';
 import {MOBIParser} from './MOBIParser';
 
 export class BookParserService {
@@ -44,9 +43,6 @@ export class BookParserService {
       case 'epub':
         parser = new EPUBParser(options);
         break;
-      case 'fb2':
-        parser = new FB2Parser();
-        break;
       case 'mobi':
         parser = new MOBIParser();
         break;
@@ -69,8 +65,6 @@ export class BookParserService {
     switch (extension) {
       case 'epub':
         return 'epub';
-      case 'fb2':
-        return 'fb2';
       case 'mobi':
       case 'azw':
       case 'azw3':

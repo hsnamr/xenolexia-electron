@@ -6,7 +6,6 @@
 export {BookParserService} from './BookParserService';
 export {EPUBParser} from './EPUBParser';
 export {TXTParser} from './TXTParser';
-export {FB2Parser} from './FB2Parser';
 export {MOBIParser} from './MOBIParser';
 
 // Chapter content service

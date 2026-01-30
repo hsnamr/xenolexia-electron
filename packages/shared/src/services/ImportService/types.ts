@@ -10,11 +10,10 @@ import type {BookFormat} from '../types';
 export const SUPPORTED_MIME_TYPES = [
   'application/epub+zip', // EPUB
   'application/x-mobipocket-ebook', // MOBI
-  'application/x-fictionbook+xml', // FB2
   'text/plain', // TXT
 ] as const;
 
-export const SUPPORTED_EXTENSIONS = ['.epub', '.mobi', '.fb2', '.txt'] as const;
+export const SUPPORTED_EXTENSIONS = ['.epub', '.mobi', '.txt'] as const;
 
 /**
  * Import status states

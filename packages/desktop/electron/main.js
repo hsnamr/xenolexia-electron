@@ -135,16 +135,6 @@ async function createWindow() {
     mainWindow = null;
   });
 
-  // Keep menu bar visible when entering full screen
-  mainWindow.on('enter-full-screen', () => {
-    mainWindow.setMenuBarVisibility(true);
-  });
-
-  // Re-apply application menu and restore menu bar when leaving full screen (menu bar can disappear on Linux/Windows)
-  mainWindow.on('leave-full-screen', () => {
-    createMenu();
-    mainWindow.setMenuBarVisibility(true);
-  });
 }
 
 // IPC Handlers
@@ -338,8 +328,8 @@ app.whenReady().then(() => {
     }
   });
 
-  // Create application menu
-  createMenu();
+  // Create application menu (pass mainWindow so Linux/Windows attach menu to window)
+  createMenu(mainWindow);
 });
 
 // Quit when all windows are closed (except on macOS)
@@ -349,7 +339,7 @@ app.on('window-all-closed', () => {
   }
 });
 
-function createMenu() {
+function createMenu(win) {
   const template = [
     {
       label: 'File',
@@ -396,15 +386,11 @@ function createMenu() {
     {
       label: 'View',
       submenu: [
-        {role: 'reload', label: 'Reload'},
-        {role: 'forceReload', label: 'Force Reload'},
         {role: 'toggleDevTools', label: 'Toggle Developer Tools'},
         {type: 'separator'},
         {role: 'resetZoom', label: 'Actual Size'},
         {role: 'zoomIn', label: 'Zoom In'},
         {role: 'zoomOut', label: 'Zoom Out'},
-        {type: 'separator'},
-        {role: 'togglefullscreen', label: 'Toggle Full Screen'},
       ],
     },
     {
@@ -465,4 +451,8 @@ function createMenu() {
 
   const menu = Menu.buildFromTemplate(template);
   Menu.setApplicationMenu(menu);
+  // On Linux/Windows, attach menu to the window so it survives full-screen toggle
+  if (win && !win.isDestroyed() && (process.platform === 'linux' || process.platform === 'win32')) {
+    win.setMenu(menu);
+  }
 }
