@@ -64,6 +64,10 @@ try {
     return ipcRenderer.invoke('translation:translateBulk', { words, sourceLanguage, targetLanguage });
   },
 
+  downloadDictionary: (url) => {
+    return ipcRenderer.invoke('dictionary:download', { url });
+  },
+
   // Directory operations
   readDir: (dirPath) => {
     return ipcRenderer.invoke('file:readDir', dirPath);

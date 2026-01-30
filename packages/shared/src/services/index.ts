@@ -36,6 +36,10 @@ export {
   DynamicWordDatabase,
   dynamicWordDatabase,
 } from './TranslationEngine';
+
+// Word Database Service (installDictionary, bulkImport for word lists)
+export { WordDatabaseService, wordDatabase } from './TranslationEngine';
+export type { BulkImportResult } from './TranslationEngine';
 export type {
   DynamicWordEntry,
   WordLookupResult,

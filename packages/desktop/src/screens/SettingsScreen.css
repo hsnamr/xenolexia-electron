@@ -333,6 +333,49 @@
   color: var(--text-primary, #1f2937);
 }
 
+.dictionary-download {
+  padding-top: 24px;
+  margin-top: 24px;
+  border-top: 1px solid var(--border-secondary, #e5e7eb);
+}
+
+.dictionary-download h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 8px;
+  color: var(--text-primary, #1f2937);
+}
+
+.dictionary-download-hint {
+  font-size: 12px;
+  color: var(--text-secondary, #6b7280);
+  margin: 0 0 12px;
+}
+
+.dictionary-download-url {
+  margin: 12px 0;
+}
+
+.dictionary-url-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--border-secondary, #e5e7eb);
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.dictionary-download-error {
+  margin-top: 12px;
+  color: #dc2626;
+  font-size: 14px;
+}
+
+.dictionary-download-success {
+  margin-top: 12px;
+  color: #059669;
+  font-size: 14px;
+}
+
 .book-manager-empty {
   text-align: center;
   color: var(--text-secondary, #6b7280);

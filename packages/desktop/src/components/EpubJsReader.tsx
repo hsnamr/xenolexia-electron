@@ -151,7 +151,7 @@ export const EpubJsReader = forwardRef<EpubJsReaderHandle, EpubJsReaderProps>(
             width: '100%',
             height: '100%',
             flow: 'scrolled-doc',
-            allowScriptedContent: false,
+            allowScriptedContent: true, // avoids "Blocked script execution in about:srcdoc" (iframe sandbox); needed for some EPUBs/epub.js
           });
           renditionRef.current = rendition;
 

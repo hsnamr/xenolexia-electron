@@ -317,6 +317,50 @@ function setupIpcHandlers() {
     }
     return { translations, provider: 'libretranslate', failed };
   });
+
+  // Dictionary download (main process fetch to avoid renderer CSP)
+  const MAX_DICT_SIZE = 5 * 1024 * 1024; // 5MB
+  ipcMain.handle('dictionary:download', async (event, { url }) => {
+    if (!url || typeof url !== 'string') {
+      return { error: 'Invalid URL' };
+    }
+    const u = url.trim();
+    if (!u.startsWith('http://') && !u.startsWith('https://')) {
+      return { error: 'URL must be http or https' };
+    }
+    try {
+      const res = await fetch(u, { signal: AbortSignal.timeout(60000) });
+      if (!res.ok) return { error: `HTTP ${res.status}` };
+      const contentLength = res.headers.get('content-length');
+      if (contentLength && parseInt(contentLength, 10) > MAX_DICT_SIZE) {
+        return { error: 'Dictionary file too large (max 5MB)' };
+      }
+      const text = await res.text();
+      if (text.length > MAX_DICT_SIZE) return { error: 'Dictionary file too large (max 5MB)' };
+      const data = JSON.parse(text);
+      if (!Array.isArray(data)) return { error: 'JSON must be an array of { source, target } entries' };
+      const words = [];
+      for (let i = 0; i < data.length; i++) {
+        const row = data[i];
+        if (row == null || typeof row !== 'object') continue;
+        const source = row.source != null ? String(row.source).trim() : '';
+        const target = row.target != null ? String(row.target).trim() : '';
+        if (!source || !target) continue;
+        words.push({
+          source,
+          target,
+          rank: typeof row.rank === 'number' ? row.rank : undefined,
+          pos: typeof row.pos === 'string' ? row.pos : undefined,
+          variants: Array.isArray(row.variants) ? row.variants.map(String) : undefined,
+          pronunciation: typeof row.pronunciation === 'string' ? row.pronunciation : undefined,
+        });
+      }
+      return { words };
+    } catch (err) {
+      const msg = err && err.message ? err.message : String(err);
+      return { error: msg };
+    }
+  });
 }
 
 function createTray() {

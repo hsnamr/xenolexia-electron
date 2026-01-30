@@ -35,6 +35,12 @@ export interface ElectronAPI {
     sourceLanguage: string,
     targetLanguage: string
   ) => Promise<{ translations: Record<string, string>; provider: string; failed: string[] }>;
+
+  /** Download dictionary JSON from URL (main process fetch). Expected format: array of { source, target, rank?, pos?, variants?, pronunciation? }. */
+  downloadDictionary: (url: string) => Promise<{
+    words?: Array<{ source: string; target: string; rank?: number; pos?: string; variants?: string[]; pronunciation?: string }>;
+    error?: string;
+  }>;
 }
 
 declare global {

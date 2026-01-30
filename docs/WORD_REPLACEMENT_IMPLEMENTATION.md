@@ -57,6 +57,18 @@ If **replacements are always zero**, likely causes:
 
 ---
 
+## 2.1. EPUB iframe: "Blocked script execution in 'about:srcdoc'"
+
+When reading EPUBs, you may see:
+
+> Blocked script execution in 'about:srcdoc' because the document's frame is sandboxed and the 'allow-scripts' permission is not set.
+
+- **Cause**: epub.js renders each section in an iframe with a `srcdoc` document. That iframe is sandboxed; by default scripts inside it are blocked.
+- **Effect**: Scripts in the EPUB (or epub.js internals) do not run. This can prevent some interactive EPUBs from working. It does **not** directly break our word-replacement logic (we run in the parent window and only set `innerHTML` and attach listeners), but the console error can be confusing and some books may rely on scripts.
+- **Fix**: In `EpubJsReader.tsx`, the rendition is created with `allowScriptedContent: true`. That allows scripts inside the iframe (equivalent to the iframe having the `allow-scripts` sandbox permission). **Security note**: Allowing scripts means arbitrary EPUB content can run JS; only use with trusted or well-known EPUB sources.
+
+---
+
 ## 3. Why Running in the Renderer Is Fragile
 
 - **Network**: Renderer is a browser context; external `fetch()` can be blocked by CSP, `webSecurity`, or environment.
@@ -105,6 +117,17 @@ So the **design** (tokenize → lookup → replace) is fine; the **environment**
 - **Pros**: No big refactor; can confirm where the pipeline fails.
 - **Cons**: Renderer `fetch()` may still be blocked in some deployments; fixing that might require CSP/webSecurity changes anyway.
 
+### Summary: options at a glance
+
+| Option | Description | Pros | Cons |
+|--------|-------------|------|------|
+| **A** | Move translation to main process (IPC) | No renderer fetch; reliable network; easier to debug | Requires IPC handler and wiring |
+| **B** | Pre-fill word list (offline-first) | Works offline for common words; fewer API calls | Need to source/maintain word lists per pair |
+| **C** | Hybrid (main process API + optional word lists) | Offline where possible, API where needed | More implementation work |
+| **D** | Harden current (logging, relax CSP) | No big refactor; clarifies failure point | Renderer fetch may still be blocked |
+
+**Current status**: Option A is implemented (translation API runs in main process via `translation:translateBulk`). Option B/C can be added by installing or bundling word lists and using the existing `word_list` / `installDictionary` / `bulkImport` flow.
+
 ---
 
 ## 5. Recommended Next Steps
@@ -137,3 +160,18 @@ So the **design** (tokenize → lookup → replace) is fine; the **environment**
 | `packages/desktop/src/services/DatabaseService.renderer.ts` | IPC stub: renderer DB calls go to main (including word_list cache). |
 
 In the renderer, `databaseService` is this IPC stub. When running in Electron, translation API calls are made from the **main process** via IPC (`translation:translateBulk`); when not in Electron, `translationAPI` uses `fetch()` in the renderer.
+
+---
+
+## 7. Downloadable dictionaries (Option B/C)
+
+You can install word lists for a language pair so lookups hit the local list first and the API is only used for misses.
+
+- **Where**: Settings → Manage Dictionaries → “Download dictionary”.
+- **IPC**: Main process handles `dictionary:download` (fetch from URL, parse JSON, return `{ words }` or `{ error }`). Renderer then calls `wordDatabase.bulkImport(words, sourceLang, targetLang)` (via existing DB IPC).
+- **JSON format**: URL must return a JSON **array** of objects. Each object must have `source` and `target` (strings). Optional: `rank` (number, frequency rank), `pos` (string, part of speech), `variants` (array of strings), `pronunciation` (string). Example:
+  ```json
+  [{"source":"hello","target":"γεια"},{"source":"world","target":"κόσμος","rank":2}]
+  ```
+- **Limits**: Max 5MB response; 60s timeout. Only `http://` and `https://` URLs are allowed.
+- **Bundled data**: The app can ship pre-built JSON files (e.g. from [FrequencyWords](https://github.com/hermitdave/FrequencyWords) or other FOSS lists) and either link them as “preset” URLs or bundle them in the app and install on first run for default language pairs. The existing `words_en_el` seed is an example of bundled data.

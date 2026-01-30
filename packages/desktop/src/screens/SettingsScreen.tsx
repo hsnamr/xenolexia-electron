@@ -8,6 +8,7 @@ import {useUserStore} from '@xenolexia/shared/stores/userStore';
 import {useLibraryStore} from '@xenolexia/shared/stores/libraryStore';
 import {useVocabularyStore} from '@xenolexia/shared/stores/vocabularyStore';
 import {SUPPORTED_LANGUAGES, getLanguageInfo, type Language, type ProficiencyLevel} from '@xenolexia/shared/types';
+import {wordDatabase} from '@xenolexia/shared';
 import {Button, Card} from '../components/ui';
 import {
   generateExportContent,
@@ -444,6 +445,47 @@ interface DictionaryManagerModalProps {
 function DictionaryManagerModal({dictionaries, onAdd, onRemove, onClose}: DictionaryManagerModalProps): React.JSX.Element {
   const [newSource, setNewSource] = useState<Language>('en');
   const [newTarget, setNewTarget] = useState<Language>('el');
+  const [downloadSource, setDownloadSource] = useState<Language>('en');
+  const [downloadTarget, setDownloadTarget] = useState<Language>('el');
+  const [downloadUrl, setDownloadUrl] = useState('');
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadMessage, setDownloadMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const canDownload = Boolean(window.electronAPI?.downloadDictionary);
+
+  const handleDownloadDictionary = useCallback(async () => {
+    const url = downloadUrl.trim();
+    if (!url) {
+      setDownloadMessage({ type: 'error', text: 'Enter a dictionary URL' });
+      return;
+    }
+    if (!window.electronAPI?.downloadDictionary) {
+      setDownloadMessage({ type: 'error', text: 'Download not available' });
+      return;
+    }
+    setIsDownloading(true);
+    setDownloadMessage(null);
+    try {
+      const result = await window.electronAPI.downloadDictionary(url);
+      if (result.error) {
+        setDownloadMessage({ type: 'error', text: result.error });
+        return;
+      }
+      if (!result.words || result.words.length === 0) {
+        setDownloadMessage({ type: 'error', text: 'No valid entries in dictionary' });
+        return;
+      }
+      await wordDatabase.initialize();
+      const bulk = await wordDatabase.bulkImport(result.words, downloadSource, downloadTarget);
+      const errMsg = bulk.errors.length ? ` (${bulk.errors.length} errors)` : '';
+      setDownloadMessage({ type: 'success', text: `Imported ${bulk.imported} words${errMsg}` });
+      onAdd(downloadSource, downloadTarget);
+    } catch (err) {
+      setDownloadMessage({ type: 'error', text: err instanceof Error ? err.message : String(err) });
+    } finally {
+      setIsDownloading(false);
+    }
+  }, [downloadUrl, downloadSource, downloadTarget, onAdd]);
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -515,6 +557,63 @@ function DictionaryManagerModal({dictionaries, onAdd, onRemove, onClose}: Dictio
               Add Dictionary
             </Button>
           </div>
+          {canDownload && (
+            <div className="dictionary-download">
+              <h3>Download Dictionary</h3>
+              <p className="dictionary-download-hint">JSON URL: array of &#123; &quot;source&quot;, &quot;target&quot; &#125; (optional: rank, pos, variants, pronunciation). Max 5MB.</p>
+              <div className="language-picker-row">
+                <label>Source:</label>
+                <select
+                  className="language-select"
+                  value={downloadSource}
+                  onChange={(e) => setDownloadSource(e.target.value as Language)}
+                >
+                  {SUPPORTED_LANGUAGES.map(lang => (
+                    <option key={lang.code} value={lang.code}>
+                      {lang.flag} {lang.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="language-picker-row">
+                <label>Target:</label>
+                <select
+                  className="language-select"
+                  value={downloadTarget}
+                  onChange={(e) => setDownloadTarget(e.target.value as Language)}
+                >
+                  {SUPPORTED_LANGUAGES.filter(lang => lang.code !== downloadSource).map(lang => (
+                    <option key={lang.code} value={lang.code}>
+                      {lang.flag} {lang.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="dictionary-download-url">
+                <label>URL:</label>
+                <input
+                  type="url"
+                  className="dictionary-url-input"
+                  placeholder="https://example.com/dict-en-es.json"
+                  value={downloadUrl}
+                  onChange={(e) => setDownloadUrl(e.target.value)}
+                  disabled={isDownloading}
+                />
+              </div>
+              <Button
+                variant="primary"
+                onClick={handleDownloadDictionary}
+                disabled={isDownloading}
+              >
+                {isDownloading ? 'Downloading…' : 'Download and install'}
+              </Button>
+              {downloadMessage && (
+                <p className={downloadMessage.type === 'error' ? 'dictionary-download-error' : 'dictionary-download-success'}>
+                  {downloadMessage.text}
+                </p>
+              )}
+            </div>
+          )}
         </div>
         <div className="modal-footer">
           <Button variant="primary" onClick={onClose}>Done</Button>
