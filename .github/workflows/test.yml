@@ -36,7 +36,7 @@ jobs:
       - name: Upload coverage to Codecov (if present)
         uses: codecov/codecov-action@v3
         with:
-          files: ./packages/shared/coverage/lcov.info
+          files: ./lib/coverage/lcov.info
           fail_ci_if_error: false
           verbose: true
 

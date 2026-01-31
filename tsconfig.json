@@ -13,6 +13,10 @@
     "isolatedModules": true,
 
     "baseUrl": ".",
+    "paths": {
+      "@xenolexia/shared/*": ["lib/src/*"],
+      "@xenolexia/shared": ["lib/src"]
+    },
     "noEmit": true,
     "allowJs": true,
     "allowSyntheticDefaultImports": true,
@@ -31,7 +35,8 @@
     "forceConsistentCasingInFileNames": true
   },
   "include": [
-    "packages/**/*",
+    "app/**/*",
+    "lib/**/*",
     "e2e/**/*",
     "*.config.js",
     "*.config.ts"

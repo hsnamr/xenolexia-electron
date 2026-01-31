@@ -1,7 +1,7 @@
 /**
  * UI / E2E tests for Xenolexia Electron app.
- * Requires desktop app to be built first: npm run electron:build (from packages/desktop)
- * or at least: cd packages/desktop && npm run build:assets
+ * Requires desktop app to be built first: npm run electron:build (from app)
+ * or at least: cd app && npm run build:assets
  */
 
 import path from 'path';
@@ -11,10 +11,10 @@ import {_electron as electron} from 'playwright';
 
 function launchElectron() {
   const projectRoot = path.resolve(__dirname, '..');
-  const desktopPath = path.join(projectRoot, 'packages', 'desktop');
-  const mainPath = path.join(desktopPath, 'electron', 'main.js');
+  const appPath = path.join(projectRoot, 'app');
+  const mainPath = path.join(appPath, 'electron', 'main.js');
   return electron.launch({
-    cwd: desktopPath,
+    cwd: appPath,
     args: [mainPath],
     env: {...process.env, NODE_ENV: 'development'},
     timeout: 30000,

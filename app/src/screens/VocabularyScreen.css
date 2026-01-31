@@ -1,0 +1,344 @@
+.vocabulary-screen {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background-color: #f9fafb;
+}
+
+.vocabulary-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 2rem;
+  background-color: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.vocabulary-header h1 {
+  margin: 0;
+  font-size: 1.875rem;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.vocabulary-subtitle {
+  margin: 0.25rem 0 0 0;
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.vocabulary-header-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.vocabulary-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1rem;
+  padding: 1.5rem 2rem;
+  background-color: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.vocabulary-stat-card {
+  text-align: center;
+  padding: 1rem;
+  background-color: #f9fafb;
+  border-radius: 0.5rem;
+}
+
+.stat-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #6366f1;
+  margin-bottom: 0.25rem;
+}
+
+.stat-label {
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.vocabulary-filters {
+  display: flex;
+  gap: 0.5rem;
+  padding: 1rem 2rem;
+  background-color: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.filter-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  background-color: #ffffff;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.875rem;
+}
+
+.filter-button:hover {
+  border-color: #6366f1;
+  background-color: #f9fafb;
+}
+
+.filter-button-active {
+  border-color: #6366f1;
+  background-color: #eef2ff;
+  color: #6366f1;
+}
+
+.vocabulary-search {
+  padding: 1rem 2rem;
+  background-color: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.vocabulary-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.5rem 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.vocabulary-card {
+  cursor: pointer;
+}
+
+.vocabulary-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.vocabulary-word {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #6366f1;
+}
+
+.vocabulary-status-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.vocabulary-card-content {
+  margin-top: 0.75rem;
+}
+
+.vocabulary-original {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 0.5rem 0;
+}
+
+.vocabulary-context {
+  font-size: 0.875rem;
+  color: #6b7280;
+  font-style: italic;
+  margin: 0 0 0.5rem 0;
+}
+
+.vocabulary-book {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  margin: 0;
+}
+
+.vocabulary-hint {
+  font-size: 0.875rem;
+  color: #9ca3af;
+  margin: 0.75rem 0 0 0;
+  text-align: center;
+}
+
+.vocabulary-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.empty-state {
+  text-align: center;
+  max-width: 32rem;
+}
+
+.empty-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+}
+
+.empty-state h2 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.5rem;
+  color: #1f2937;
+}
+
+.empty-state p {
+  margin: 0;
+  color: #6b7280;
+}
+
+.vocabulary-loading {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+/* Word Detail Modal Styles */
+.word-detail-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.word-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.word-detail-foreign {
+  margin: 0 0 0.5rem 0;
+  font-size: 2rem;
+  font-weight: 700;
+  color: #6366f1;
+}
+
+.word-detail-original {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.word-detail-status-badge {
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.word-detail-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.word-detail-section h4 {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.word-detail-context {
+  margin: 0;
+  font-size: 1rem;
+  color: #374151;
+  font-style: italic;
+  padding: 0.75rem;
+  background-color: #f9fafb;
+  border-radius: 0.5rem;
+  border-left: 3px solid #6366f1;
+}
+
+.word-detail-book {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.word-detail-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.word-detail-stat {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.word-detail-stat:last-child {
+  border-bottom: none;
+}
+
+.word-detail-stat .stat-label {
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.word-detail-stat .stat-value {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.word-detail-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  padding-top: 1rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.word-detail-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.word-detail-edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.word-detail-edit-field label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+}
+
+.word-detail-edit-field input,
+.word-detail-edit-field textarea {
+  padding: 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  font-family: inherit;
+}
+
+.word-detail-edit-field input:focus,
+.word-detail-edit-field textarea:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.word-detail-edit-field textarea {
+  resize: vertical;
+  min-height: 80px;
+}
