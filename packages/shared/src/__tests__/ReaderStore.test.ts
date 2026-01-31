@@ -1,45 +1,39 @@
 /**
- * Tests for ReaderStore - Opening ebooks and progress tracking
+ * Tests for ReaderStore - Opening ebooks and progress tracking.
+ * Store uses getCore() and BookParserService from xenolexia-typescript; parser is mocked here.
  */
 
-import {EPUBParser} from '../services/BookParser/EPUBParser';
-import {useReaderStore} from '../stores/readerStore';
+import { useReaderStore } from '../stores/readerStore';
 
-import type {Book} from '../types';
+import type { Book } from '../types';
 
-// Mock DatabaseService so libraryStore (imported by readerStore) doesn't load real DB
-jest.mock('../services/StorageService/DatabaseService', () => ({
-  databaseService: {
-    initialize: jest.fn().mockResolvedValue(undefined),
-    transaction: jest.fn((cb: (tx: unknown) => Promise<void>) => cb({})),
-    getOne: jest.fn().mockResolvedValue(null),
-    getAll: jest.fn().mockResolvedValue([]),
-    run: jest.fn().mockResolvedValue(undefined),
-    exec: jest.fn().mockResolvedValue(undefined),
-  },
-}));
+// Injected into BookParserService mock (set per test)
+let mockParserResult: { chapters: Array<{ index: number; title: string; content: string }>; tableOfContents: unknown[] } = {
+  chapters: [],
+  tableOfContents: [],
+};
+let mockParserParseError: Error | null = null;
 
-// Mock StorageService so we don't pull in full StorageService implementation
-jest.mock('../services/StorageService/StorageService', () => ({
-  StorageService: {
-    startSession: jest.fn().mockResolvedValue('session-1'),
-    endSession: jest.fn().mockResolvedValue(undefined),
-    initialize: jest.fn().mockResolvedValue(undefined),
-  },
-}));
-
-// Mock dependencies
-jest.mock('../services/BookParser/EPUBParser');
-jest.mock('../services/BookParser/ChapterContentService', () => ({
-  chapterContentService: {
-    loadEpub: jest.fn(),
-    getChapterHtml: jest.fn(),
-    dispose: jest.fn(),
-  },
-}));
+jest.mock('xenolexia-typescript', () => {
+  const actual = jest.requireActual('xenolexia-typescript');
+  return {
+    ...actual,
+    BookParserService: {
+      detectFormat: () => 'epub',
+      getParser: () => ({
+        parse: () =>
+          mockParserParseError
+            ? Promise.reject(mockParserParseError)
+            : Promise.resolve(mockParserResult),
+        dispose: () => {},
+      }),
+    },
+  };
+});
 
 describe('ReaderStore', () => {
   beforeEach(() => {
+    mockParserParseError = null;
     // Mock Electron API so loadBook doesn't throw on file check (Node test env)
     if (typeof global !== 'undefined') {
       (global as any).window = (global as any).window || {};
@@ -87,28 +81,11 @@ describe('ReaderStore', () => {
       };
 
       const mockChapters = [
-        {index: 0, title: 'Chapter 1', content: '<p>Content 1</p>'},
-        {index: 1, title: 'Chapter 2', content: '<p>Content 2</p>'},
-        {index: 2, title: 'Chapter 3', content: '<p>Content 3</p>'},
+        { index: 0, title: 'Chapter 1', content: '<p>Content 1</p>' },
+        { index: 1, title: 'Chapter 2', content: '<p>Content 2</p>' },
+        { index: 2, title: 'Chapter 3', content: '<p>Content 3</p>' },
       ];
-
-      const mockParser = {
-        parse: jest.fn().mockResolvedValue({
-          chapters: mockChapters,
-          tableOfContents: [],
-        }),
-        dispose: jest.fn(),
-      };
-
-      (EPUBParser as jest.Mock).mockImplementation(() => mockParser);
-
-      const {chapterContentService} = require('../services/BookParser/ChapterContentService');
-      (chapterContentService.loadEpub as jest.Mock).mockResolvedValue(undefined);
-      (chapterContentService.getChapterHtml as jest.Mock).mockResolvedValue({
-        html: '<html><body><p>Content 1</p></body></html>',
-        baseStyles: '',
-        scripts: '',
-      });
+      mockParserResult = { chapters: mockChapters, tableOfContents: [] };
 
       await useReaderStore.getState().loadBook(mockBook);
 
@@ -140,28 +117,11 @@ describe('ReaderStore', () => {
       };
 
       const mockChapters = [
-        {index: 0, title: 'Chapter 1', content: '<p>Content 1</p>'},
-        {index: 1, title: 'Chapter 2', content: '<p>Content 2</p>'},
-        {index: 2, title: 'Chapter 3', content: '<p>Content 3</p>'},
+        { index: 0, title: 'Chapter 1', content: '<p>Content 1</p>' },
+        { index: 1, title: 'Chapter 2', content: '<p>Content 2</p>' },
+        { index: 2, title: 'Chapter 3', content: '<p>Content 3</p>' },
       ];
-
-      const mockParser = {
-        parse: jest.fn().mockResolvedValue({
-          chapters: mockChapters,
-          tableOfContents: [],
-        }),
-        dispose: jest.fn(),
-      };
-
-      (EPUBParser as jest.Mock).mockImplementation(() => mockParser);
-
-      const {chapterContentService} = require('../services/BookParser/ChapterContentService');
-      (chapterContentService.loadEpub as jest.Mock).mockResolvedValue(undefined);
-      (chapterContentService.getChapterHtml as jest.Mock).mockResolvedValue({
-        html: '<html><body><p>Content 3</p></body></html>',
-        baseStyles: '',
-        scripts: '',
-      });
+      mockParserResult = { chapters: mockChapters, tableOfContents: [] };
 
       await useReaderStore.getState().loadBook(mockBook);
 
@@ -173,6 +133,8 @@ describe('ReaderStore', () => {
     });
 
     it('should handle book loading errors', async () => {
+      mockParserParseError = new Error('File not found');
+
       const mockBook: Book = {
         id: 'book-1',
         title: 'Test Book',
@@ -191,13 +153,6 @@ describe('ReaderStore', () => {
         proficiencyLevel: 'beginner',
         wordDensity: 0.3,
       };
-
-      const mockParser = {
-        parse: jest.fn().mockRejectedValue(new Error('File not found')),
-        dispose: jest.fn(),
-      };
-
-      (EPUBParser as jest.Mock).mockImplementation(() => mockParser);
 
       await useReaderStore.getState().loadBook(mockBook);
 
@@ -258,23 +213,30 @@ describe('ReaderStore', () => {
   });
 
   describe('goToNextChapter / goToPreviousChapter', () => {
-    beforeEach(async () => {
+    beforeEach(() => {
       const mockChapters = [
-        {index: 0, title: 'Chapter 1', content: '<p>Content 1</p>'},
-        {index: 1, title: 'Chapter 2', content: '<p>Content 2</p>'},
-        {index: 2, title: 'Chapter 3', content: '<p>Content 3</p>'},
+        { index: 0, title: 'Chapter 1', content: '<p>Content 1</p>' },
+        { index: 1, title: 'Chapter 2', content: '<p>Content 2</p>' },
+        { index: 2, title: 'Chapter 3', content: '<p>Content 3</p>' },
       ];
-
       useReaderStore.setState({
+        currentBook: {
+          id: 'book-1',
+          title: 'Test',
+          author: '',
+          filePath: '/path.epub',
+          format: 'epub',
+          languagePair: { sourceLanguage: 'en', targetLanguage: 'el' },
+          addedAt: new Date(),
+          lastReadAt: null,
+          progress: 0,
+          totalChapters: 3,
+          currentChapter: 0,
+          proficiencyLevel: 'beginner',
+          wordDensity: 0.3,
+        } as Book,
         chapters: mockChapters,
         currentChapterIndex: 1,
-      });
-
-      const {chapterContentService} = require('../services/BookParser/ChapterContentService');
-      (chapterContentService.getChapterHtml as jest.Mock).mockResolvedValue({
-        html: '<html><body><p>Content</p></body></html>',
-        baseStyles: '',
-        scripts: '',
       });
     });
 

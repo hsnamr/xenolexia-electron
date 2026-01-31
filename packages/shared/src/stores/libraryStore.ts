@@ -6,8 +6,8 @@ import {create} from 'zustand';
 import {persist, createJSONStorage} from 'zustand/middleware';
 
 import type {Book} from '../types';
-import {bookRepository} from '../services/StorageService/repositories';
 import type {BookFilter, BookSort} from '../services/StorageService/repositories';
+import {getCore} from '../electronCore';
 import { Platform } from '../utils/platform.electron';
 
 // Check if we're on web (Electron is not web)
@@ -131,7 +131,7 @@ const createLibraryStore = () => {
         // On web, books are loaded from localStorage via persist middleware
         // On native, load from database
         if (!IS_WEB) {
-          const books = await bookRepository.getAll(state.currentSort);
+          const books = await getCore().storageService.getBookRepository().getAll(state.currentSort);
           set({
             books,
             isLoading: false,
@@ -163,7 +163,7 @@ const createLibraryStore = () => {
       try {
         // On native, add to database first
         if (!IS_WEB) {
-          await bookRepository.add(book);
+          await getCore().storageService.addBook(book);
         }
 
         // Update local state (persist middleware handles localStorage on web)
@@ -184,7 +184,7 @@ const createLibraryStore = () => {
     removeBook: async (bookId: string) => {
       try {
         if (!IS_WEB) {
-          await bookRepository.delete(bookId);
+          await getCore().storageService.deleteBook(bookId);
         }
 
         // Delete the book files
@@ -213,7 +213,7 @@ const createLibraryStore = () => {
     updateBook: async (bookId: string, updates: Partial<Book>) => {
       try {
         if (!IS_WEB) {
-          await bookRepository.update(bookId, updates);
+          await getCore().storageService.updateBook(bookId, updates);
         }
 
         set((state: LibraryState) => ({
@@ -252,12 +252,12 @@ const createLibraryStore = () => {
         let books: Book[];
 
         if (state.currentFilter) {
-          books = await bookRepository.getFiltered(
+          books = await getCore().storageService.getBookRepository().getFiltered(
             state.currentFilter,
             state.currentSort,
           );
         } else {
-          books = await bookRepository.getAll(state.currentSort);
+          books = await getCore().storageService.getBookRepository().getAll(state.currentSort);
         }
 
         set({books, isLoading: false});
@@ -285,9 +285,9 @@ const createLibraryStore = () => {
         let books: Book[];
 
         if (filter) {
-          books = await bookRepository.getFiltered(filter, currentSort);
+          books = await getCore().storageService.getBookRepository().getFiltered(filter, currentSort);
         } else {
-          books = await bookRepository.getAll(currentSort);
+          books = await getCore().storageService.getBookRepository().getAll(currentSort);
         }
 
         set({books, isLoading: false});
@@ -313,7 +313,7 @@ const createLibraryStore = () => {
       set({isLoading: true, error: null});
 
       try {
-        const books = await bookRepository.search(query);
+        const books = await getCore().storageService.getBookRepository().search(query);
         set({books, isLoading: false});
       } catch (error) {
         console.error('[LibraryStore] Failed to search books:', error);
@@ -337,7 +337,7 @@ const createLibraryStore = () => {
     ) => {
       try {
         if (!IS_WEB) {
-          await bookRepository.updateProgress(bookId, progress, location, chapter, page);
+          await getCore().storageService.getBookRepository().updateProgress(bookId, progress, location, chapter, page);
         }
 
         set((state: LibraryState) => ({
@@ -362,7 +362,7 @@ const createLibraryStore = () => {
     updateReadingTime: async (bookId: string, minutes: number) => {
       try {
         if (!IS_WEB) {
-          await bookRepository.addReadingTime(bookId, minutes);
+          await getCore().storageService.getBookRepository().addReadingTime(bookId, minutes);
         }
 
         set((state: LibraryState) => ({
@@ -423,7 +423,7 @@ const createLibraryStore = () => {
       set({isLoading: true});
       try {
         if (!IS_WEB) {
-          await bookRepository.deleteAll();
+          await getCore().storageService.getBookRepository().deleteAll();
         }
         set({
           books: [],

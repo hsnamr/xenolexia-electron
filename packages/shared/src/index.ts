@@ -1,15 +1,38 @@
 /**
  * Shared Package - Xenolexia
- * 
- * This package contains all platform-agnostic business logic, stores, services,
- * types, utilities, hooks, and constants that can be shared between the mobile
- * (React Native) and desktop (Electron) applications.
+ *
+ * Uses xenolexia-typescript core when setElectronAdapters() has been called (Electron).
+ * Stores and services use getCore() for storage, translation, and book parsing.
  */
 
-// Stores
+export { setElectronAdapters, getCore } from './electronCore';
+export { electronFileSystem } from './adapters/electronFileSystem';
+export { createElectronKeyValueStore } from './adapters/electronKeyValueStore';
+
+import { getCore } from './electronCore';
+import type { TranslationOptions } from 'xenolexia-typescript';
+
+export function createTranslationEngine(opts: TranslationOptions) {
+  return getCore().createTranslationEngine(opts);
+}
+
+let _wordDatabase: ReturnType<ReturnType<typeof getCore>['createDynamicWordDatabase']> | null = null;
+export function getWordDatabase() {
+  if (!_wordDatabase) _wordDatabase = getCore().createDynamicWordDatabase();
+  return _wordDatabase;
+}
+
+/** @deprecated Use getWordDatabase() instead. Kept for backward compatibility. */
+export const wordDatabase = new Proxy({} as any, {
+  get(_, prop) {
+    return (getWordDatabase() as any)[prop];
+  },
+});
+
+// Stores (use getCore() internally)
 export * from './stores';
 
-// Services
+// Services (ImportService, BookDownloadService, ReaderStyleService, etc.)
 export * from './services';
 
 // Types

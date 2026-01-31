@@ -4,7 +4,7 @@
 
 import {create} from 'zustand';
 import type {UserPreferences, ReaderSettings} from '../types/index';
-import {StorageService} from '../services/StorageService/StorageService';
+import {getCore} from '../electronCore';
 
 const defaultReaderSettings: ReaderSettings = {
   theme: 'light',
@@ -83,7 +83,7 @@ export const useUserStore = create<UserState>((set, get) => ({
 
   savePreferences: async () => {
     try {
-      await StorageService.savePreferences(get().preferences);
+      await getCore().storageService.savePreferences(get().preferences);
     } catch (error) {
       console.error('Failed to save preferences:', error);
     }

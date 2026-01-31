@@ -4,12 +4,8 @@
 
 import {create} from 'zustand';
 
-import {BookParserService} from '../services/BookParser/BookParserService';
-import {
-  ChapterContentService,
-  chapterContentService,
-} from '../services/BookParser/ChapterContentService';
-import {StorageService} from '../services/StorageService/StorageService';
+import {BookParserService, type ChapterContentService} from 'xenolexia-typescript';
+import {getCore} from '../electronCore';
 
 import {useLibraryStore} from './libraryStore';
 
@@ -62,8 +58,8 @@ interface ReaderState {
   error: string | null;
 
   // Internal references
-  parser: EPUBParser | null;
-  contentService: ChapterContentService;
+  parser: IBookParser | null;
+  contentService: ChapterContentService | null;
 
   // Actions
   loadBook: (book: Book) => Promise<void>;
@@ -120,7 +116,7 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
   isLoadingChapter: false,
   error: null,
   parser: null,
-  contentService: chapterContentService,
+  contentService: null as any,
 
   /**
    * Load a book and parse its content
@@ -158,10 +154,13 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
       });
 
       // Load the book in content service for image extraction (only for EPUB)
+      const contentService = getCore().createChapterContentService(getCore().createTranslationEngine);
+      set({ contentService });
+
       if (format === 'epub') {
         console.log('Loading EPUB in content service...');
         try {
-          await get().contentService.loadEpub(book.filePath);
+          await contentService.loadEpub(book.filePath);
           console.log('Content service loaded');
         } catch (error) {
           console.warn('Failed to load EPUB in content service (images may not work):', error);
@@ -202,7 +201,8 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
    * Navigate to a specific chapter
    */
   goToChapter: async (index: number) => {
-    const {currentBook, chapters, settings, contentService} = get();
+    const {currentBook, chapters, settings} = get();
+    const contentService = getCore().createChapterContentService(getCore().createTranslationEngine);
 
     console.log('goToChapter called:', {index, totalChapters: chapters.length});
 
@@ -380,7 +380,7 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
     // End reading session if one was started
     if (currentSessionId && currentBook) {
       try {
-        await StorageService.endSession(currentSessionId, {
+        await getCore().storageService.endSession(currentSessionId, {
           pagesRead: 0, // Could calculate from chapters read
           wordsRevealed,
           wordsSaved,
@@ -392,8 +392,8 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
     }
 
     // Clean up resources
-    parser?.dispose();
-    contentService.dispose();
+    parser?.dispose?.();
+    contentService?.dispose?.();
 
     set({
       currentBook: null,
@@ -410,6 +410,7 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
       wordsRevealed: 0,
       wordsSaved: 0,
       parser: null,
+      contentService: null,
       error: null,
     });
   },

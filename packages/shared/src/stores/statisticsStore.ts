@@ -4,8 +4,7 @@
 
 import {create} from 'zustand';
 import type {ReadingStats, ReadingSession} from '../types/index';
-import {StorageService} from '../services/StorageService/StorageService';
-import {sessionRepository} from '../services/StorageService/repositories/SessionRepository';
+import {getCore} from '../electronCore';
 
 const defaultStats: ReadingStats = {
   totalBooksRead: 0,
@@ -64,7 +63,7 @@ export const useStatisticsStore = create<StatisticsState>((set, get) => ({
 
   startSession: async (bookId: string) => {
     try {
-      const sessionId = await StorageService.startSession(bookId);
+      const sessionId = await getCore().storageService.startSession(bookId);
       const session: ReadingSession = {
         id: sessionId,
         bookId,
@@ -182,9 +181,9 @@ export const useStatisticsStore = create<StatisticsState>((set, get) => ({
   loadStats: async () => {
     set({isLoading: true});
     try {
-      const stats = await StorageService.getReadingStats();
+      const stats = await getCore().storageService.getReadingStats();
       // Get recent sessions (last 50)
-      const recentSessions = await sessionRepository.getRecent(50);
+      const recentSessions = await getCore().storageService.getSessionRepository().getRecent(50);
       set({stats, sessions: recentSessions, isLoading: false});
     } catch (error) {
       console.error('Failed to load stats:', error);

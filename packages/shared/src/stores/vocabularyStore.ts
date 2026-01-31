@@ -4,7 +4,7 @@
 
 import { create } from 'zustand';
 import type { VocabularyItem, VocabularyStatus, Language } from '../types/index';
-import { vocabularyRepository } from '../services/StorageService/repositories/VocabularyRepository';
+import { getCore } from '../electronCore';
 
 // ============================================================================
 // Types
@@ -84,11 +84,9 @@ export const useVocabularyStore = create<VocabularyState>((set, get) => ({
 
     set({ isLoading: true, error: null });
     try {
-      const vocabulary = await vocabularyRepository.getAll({
-        by: 'addedAt',
-        order: 'desc',
-      });
-      const stats = await vocabularyRepository.getStatistics();
+      const repo = getCore().storageService.getVocabularyRepository();
+      const vocabulary = await repo.getAll({ by: 'addedAt', order: 'desc' });
+      const stats = await repo.getStatistics();
 
       set({
         vocabulary,
@@ -112,7 +110,7 @@ export const useVocabularyStore = create<VocabularyState>((set, get) => ({
   addWord: async (word: VocabularyItem) => {
     try {
       // Add to database
-      await vocabularyRepository.add(word);
+      await getCore().storageService.addVocabulary(word);
 
       // Update local state
       set((state) => ({
@@ -138,7 +136,7 @@ export const useVocabularyStore = create<VocabularyState>((set, get) => ({
 
     try {
       // Remove from database
-      await vocabularyRepository.delete(wordId);
+      await getCore().storageService.deleteVocabulary(wordId);
 
       // Update local state
       set((state) => {
@@ -163,7 +161,7 @@ export const useVocabularyStore = create<VocabularyState>((set, get) => ({
   updateWord: async (wordId: string, updates: Partial<VocabularyItem>) => {
     try {
       // Update in database
-      await vocabularyRepository.update(wordId, updates);
+      await getCore().storageService.getVocabularyRepository().update(wordId, updates);
 
       // Update local state
       set((state) => ({
@@ -201,7 +199,7 @@ export const useVocabularyStore = create<VocabularyState>((set, get) => ({
    */
   getDueForReview: async () => {
     try {
-      return await vocabularyRepository.getDueForReview(20);
+      return await getCore().storageService.getVocabularyDueForReview();
     } catch (error) {
       console.error('Failed to get due words:', error);
       return [];
@@ -219,10 +217,10 @@ export const useVocabularyStore = create<VocabularyState>((set, get) => ({
 
     try {
       // Record in database (handles SM-2 calculation)
-      await vocabularyRepository.recordReview(wordId, quality);
+      await getCore().storageService.getVocabularyRepository().recordReview(wordId, quality);
 
       // Fetch updated word
-      const updatedWord = await vocabularyRepository.getById(wordId);
+      const updatedWord = await getCore().storageService.getVocabularyRepository().getById(wordId);
       if (!updatedWord) return;
 
       // Update local state
@@ -253,7 +251,7 @@ export const useVocabularyStore = create<VocabularyState>((set, get) => ({
   refreshVocabulary: async () => {
     set({ isLoading: true, error: null });
     try {
-      const vocabulary = await vocabularyRepository.getAll({
+      const vocabulary = await getCore().storageService.getVocabularyRepository().getAll({
         by: 'addedAt',
         order: 'desc',
       });
@@ -272,7 +270,7 @@ export const useVocabularyStore = create<VocabularyState>((set, get) => ({
    */
   refreshStats: async () => {
     try {
-      const stats = await vocabularyRepository.getStatistics();
+      const stats = await getCore().storageService.getVocabularyRepository().getStatistics();
       set({ stats });
     } catch (error) {
       console.error('Failed to refresh stats:', error);
@@ -288,7 +286,7 @@ export const useVocabularyStore = create<VocabularyState>((set, get) => ({
     }
 
     try {
-      return await vocabularyRepository.search(query);
+      return await getCore().storageService.getVocabularyRepository().search(query);
     } catch (error) {
       console.error('Failed to search words:', error);
       // Fallback to local search
@@ -306,7 +304,7 @@ export const useVocabularyStore = create<VocabularyState>((set, get) => ({
    */
   getWordsByBook: async (bookId: string) => {
     try {
-      return await vocabularyRepository.getFiltered({ bookId });
+      return await getCore().storageService.getVocabularyRepository().getFiltered({ bookId });
     } catch (error) {
       console.error('Failed to get words by book:', error);
       return get().vocabulary.filter((w) => w.bookId === bookId);
@@ -318,7 +316,7 @@ export const useVocabularyStore = create<VocabularyState>((set, get) => ({
    */
   getWordsByLanguage: async (sourceLanguage: Language, targetLanguage: Language) => {
     try {
-      return await vocabularyRepository.getFiltered({
+      return await getCore().storageService.getVocabularyRepository().getFiltered({
         sourceLanguage,
         targetLanguage,
       });
@@ -356,7 +354,7 @@ export const useVocabularyStore = create<VocabularyState>((set, get) => ({
   clearVocabulary: async () => {
     set({ isLoading: true });
     try {
-      await vocabularyRepository.deleteAll();
+      await getCore().storageService.getVocabularyRepository().deleteAll();
       set({
         vocabulary: [],
         stats: initialStats,
