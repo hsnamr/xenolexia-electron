@@ -4,24 +4,9 @@
 
 import {useLibraryStore} from '../stores/libraryStore';
 
-import type {Book} from '../types';
+import type {Book} from 'xenolexia-typescript';
 
-// Mock the book repository
-jest.mock('../services/StorageService/repositories', () => ({
-  bookRepository: {
-    add: jest.fn().mockResolvedValue(undefined),
-    create: jest.fn().mockResolvedValue(undefined),
-    delete: jest.fn().mockResolvedValue(undefined),
-    remove: jest.fn().mockResolvedValue(undefined),
-    update: jest.fn().mockResolvedValue(undefined),
-    updateProgress: jest.fn().mockResolvedValue(undefined),
-    addReadingTime: jest.fn().mockResolvedValue(undefined),
-    getById: jest.fn(),
-    getAll: jest.fn(),
-    search: jest.fn(),
-    getFiltered: jest.fn(),
-  },
-}));
+// Stores use getCore() from jest.setup (mock adapters); no repository mock needed.
 
 describe('LibraryStore', () => {
   beforeEach(() => {

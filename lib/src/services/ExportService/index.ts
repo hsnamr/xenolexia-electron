@@ -1,6 +1,5 @@
 /**
- * Export Service - Exports
+ * Export Service - Re-export from xenolexia-typescript core.
  */
-
-export { exportService } from './ExportService';
-export type { ExportFormat, ExportOptions, ExportResult } from './ExportService';
+export { ExportService, exportService } from 'xenolexia-typescript';
+export type { ExportFormat, ExportOptions, ExportResult } from 'xenolexia-typescript';

@@ -1,35 +1,41 @@
 /**
- * Unit tests for ChapterContentService - getChapterHtml with and without translation
+ * Unit tests for ChapterContentService (xenolexia-typescript core) - getChapterHtml with and without translation
  */
 
-import {ChapterContentService} from '../services/BookParser/ChapterContentService';
+import { getCore } from '../electronCore';
+import type { Chapter } from 'xenolexia-typescript';
 
-import type {Chapter, ChapterStyles} from '../types';
-
-jest.mock('../services/TranslationEngine/TranslationEngine', () => ({
-  createTranslationEngine: jest.fn(),
-}));
+const createTranslationEngine = jest.fn();
+jest.mock('xenolexia-typescript', () => {
+  const actual = jest.requireActual('xenolexia-typescript');
+  return { ...actual, createTranslationEngine };
+});
 
 jest.mock('../utils/FileSystem.electron', () => ({
   readFileAsBase64: jest.fn().mockResolvedValue(''),
 }));
 
-const {createTranslationEngine} = require('../services/TranslationEngine/TranslationEngine');
-
 describe('ChapterContentService', () => {
-  let service: ChapterContentService;
-  const baseStyles: ChapterStyles = {
+  let service: ReturnType<ReturnType<typeof getCore>['createChapterContentService']>;
+  const baseStyles = {
     fontFamily: 'Georgia',
     fontSize: 18,
     lineHeight: 1.6,
-    textAlign: 'left',
+    textAlign: 'left' as const,
     marginHorizontal: 24,
-    theme: 'light',
+    theme: 'light' as const,
     foreignWordColor: '#6366f1',
   };
 
   beforeEach(() => {
-    service = new ChapterContentService();
+    createTranslationEngine.mockImplementation(() => ({
+      processContent: jest.fn().mockResolvedValue({
+        content: '',
+        foreignWords: [],
+        stats: { totalWords: 0, eligibleWords: 0, replacedWords: 0, processingTime: 0 },
+      }),
+    }));
+    service = getCore().createChapterContentService(createTranslationEngine as any);
     jest.clearAllMocks();
   });
 
@@ -76,7 +82,7 @@ describe('ChapterContentService', () => {
         ],
         stats: {totalWords: 5, eligibleWords: 1, replacedWords: 1, processingTime: 0},
       });
-      (createTranslationEngine as jest.Mock).mockReturnValue({
+      createTranslationEngine.mockReturnValue({
         processContent: mockProcessContent,
       });
 
@@ -102,7 +108,7 @@ describe('ChapterContentService', () => {
     });
 
     it('should return original content and empty foreignWords when translation fails', async () => {
-      (createTranslationEngine as jest.Mock).mockReturnValue({
+      createTranslationEngine.mockReturnValue({
         processContent: jest.fn().mockRejectedValue(new Error('Translation failed')),
       });
 

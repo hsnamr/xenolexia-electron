@@ -5,8 +5,8 @@
 import {create} from 'zustand';
 import {persist, createJSONStorage} from 'zustand/middleware';
 
-import type {Book} from '../types';
-import type {BookFilter, BookSort} from '../services/StorageService/repositories';
+import type {Book} from 'xenolexia-typescript';
+import type {BookFilter, BookSort} from 'xenolexia-typescript';
 import {getCore} from '../electronCore';
 import { Platform } from '../utils/platform.electron';
 

@@ -2,8 +2,8 @@
  * Tests for WordReplacer - Translating 1-5 words per sentence
  */
 
-import {WordReplacer} from '../services/TranslationEngine/WordReplacer';
-import type {Token, WordEntry} from '../types';
+import {WordReplacer} from '../services/TranslationEngine';
+import type {Token, WordEntry} from 'xenolexia-typescript';
 
 describe('WordReplacer', () => {
   let replacer: WordReplacer;

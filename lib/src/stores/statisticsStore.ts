@@ -3,7 +3,7 @@
  */
 
 import {create} from 'zustand';
-import type {ReadingStats, ReadingSession} from '../types/index';
+import type {ReadingStats, ReadingSession} from 'xenolexia-typescript';
 import {getCore} from '../electronCore';
 
 const defaultStats: ReadingStats = {

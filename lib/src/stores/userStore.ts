@@ -3,7 +3,7 @@
  */
 
 import {create} from 'zustand';
-import type {UserPreferences, ReaderSettings} from '../types/index';
+import type {UserPreferences, ReaderSettings} from 'xenolexia-typescript';
 import {getCore} from '../electronCore';
 
 const defaultReaderSettings: ReaderSettings = {

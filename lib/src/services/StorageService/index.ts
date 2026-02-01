@@ -1,31 +1,28 @@
 /**
- * Storage Service - Database operations and repositories
- * Uses direct LowDB data API (no SQL).
+ * Storage Service - Re-export from xenolexia-typescript core.
+ * Electron IDataStore implementation (LowDB) lives in DatabaseService.electron.ts.
  */
 
-export {StorageService} from './StorageService';
-export {DatabaseSchema} from './DatabaseSchema';
-export {databaseService} from './DatabaseService';
-export type {QueryResult, MigrationDefinition} from './DatabaseService';
+export {
+  StorageService,
+  createStorageService,
+  BookRepository,
+  VocabularyRepository,
+  SessionRepository,
+  DatabaseSchema,
+} from 'xenolexia-typescript';
 export type {
   IDataStore,
   BookRow,
   VocabularyRow,
   SessionRow,
   WordListRow,
-  VocabularySort,
-  VocabularyFilter,
-} from './DataStore.types';
-
-// Repositories
-export {
-  bookRepository,
-  vocabularyRepository,
-  sessionRepository,
-} from './repositories';
-export type {
-  BookFilter,
   BookSort,
-  VocabularyFilter,
+  BookFilter,
   VocabularySort,
-} from './repositories';
+  VocabularyFilter,
+  QueryResult,
+  MigrationDefinition,
+} from 'xenolexia-typescript';
+
+export { databaseService, DatabaseService } from './DatabaseService.electron';

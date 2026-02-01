@@ -115,11 +115,21 @@ setElectronAdapters({
 });
 
 // ---------------------------------------------------------------------------
-// Legacy mocks (uuid, jszip, console)
+// Legacy mocks (uuid, jszip, electron-store, console)
 // ---------------------------------------------------------------------------
 jest.mock('uuid', () => ({
   v4: jest.fn(() => 'test-uuid-1234'),
 }));
+
+jest.mock('electron-store', () => {
+  return jest.fn().mockImplementation(() => ({
+    get: jest.fn(),
+    set: jest.fn(),
+    delete: jest.fn(),
+    clear: jest.fn(),
+    store: {},
+  }));
+});
 
 jest.mock('jszip', () => {
   return jest.fn().mockImplementation(() => ({

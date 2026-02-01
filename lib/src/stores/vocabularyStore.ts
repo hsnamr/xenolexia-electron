@@ -3,7 +3,7 @@
  */
 
 import { create } from 'zustand';
-import type { VocabularyItem, VocabularyStatus, Language } from '../types/index';
+import type { VocabularyItem, VocabularyStatus, Language } from 'xenolexia-typescript';
 import { getCore } from '../electronCore';
 
 // ============================================================================

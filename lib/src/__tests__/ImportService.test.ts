@@ -2,8 +2,8 @@
  * Tests for ImportService - Book import from local storage
  */
 
-// Mock DatabaseService first (used by dependency chain) to avoid singleton init
-jest.mock('../services/StorageService/DatabaseService', () => {
+// Mock DatabaseService.electron (used by dependency chain) to avoid singleton init
+jest.mock('../services/StorageService/DatabaseService.electron', () => {
   const m = {
     initialize: jest.fn(),
     run: jest.fn(),
@@ -13,7 +13,7 @@ jest.mock('../services/StorageService/DatabaseService', () => {
   };
   return {
     databaseService: m,
-    DatabaseService: {getInstance: jest.fn(() => m)},
+    DatabaseService: jest.fn().mockImplementation(() => m),
   };
 });
 

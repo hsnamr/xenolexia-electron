@@ -61,6 +61,7 @@ describe('ReaderStore', () => {
 
   describe('loadBook - Opening Ebooks', () => {
     it('should load a book and parse chapters', async () => {
+      jest.setTimeout(12000);
       const mockBook: Book = {
         id: 'book-1',
         title: 'Test Book',

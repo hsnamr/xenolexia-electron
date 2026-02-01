@@ -14,11 +14,6 @@ export {
   TranslationAPIService,
   translationAPI,
 } from './TranslationEngine';
-export type {
-  TranslationProvider,
-  TranslationResult,
-  BulkTranslationResult,
-} from './TranslationEngine';
 
 // Frequency List Service
 export {
@@ -26,24 +21,12 @@ export {
   frequencyListService,
   PROFICIENCY_THRESHOLDS,
 } from './TranslationEngine';
-export type {
-  FrequencyWord,
-  FrequencyList,
-} from './TranslationEngine';
 
 // Dynamic Word Database (any language pair)
-export {
-  DynamicWordDatabase,
-  dynamicWordDatabase,
-} from './TranslationEngine';
+export { DynamicWordDatabase } from './TranslationEngine';
 
 // Word Database Service (installDictionary, bulkImport for word lists)
-export { WordDatabaseService, wordDatabase } from './TranslationEngine';
-export type { BulkImportResult } from './TranslationEngine';
-export type {
-  DynamicWordEntry,
-  WordLookupResult,
-} from './TranslationEngine';
+export { WordDatabaseService } from './TranslationEngine';
 
 export {StorageService, DatabaseSchema} from './StorageService';
 
@@ -86,7 +69,6 @@ export type {
 export {
   ReaderStyleService,
   READER_FONTS,
-  READER_THEMES,
   generateStylesheet,
   saveSettings,
   loadSettings,

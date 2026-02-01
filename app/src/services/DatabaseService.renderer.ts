@@ -15,7 +15,8 @@ import type {
   VocabularyFilter,
   QueryResult,
   MigrationDefinition,
-} from '../../lib/src/services/StorageService/DataStore.types';
+  ReadingStats,
+} from '@xenolexia/shared';
 
 export type {QueryResult, MigrationDefinition};
 
@@ -188,8 +189,8 @@ export class DatabaseService implements IDataStore {
     await getAPI()('deleteAllSessions');
   }
 
-  async getSessionStatistics(): Promise<import('../../lib/src/types').ReadingStats> {
-    return getAPI()('getSessionStatistics') as Promise<import('../../lib/src/types').ReadingStats>;
+  async getSessionStatistics(): Promise<ReadingStats> {
+    return getAPI()('getSessionStatistics') as Promise<ReadingStats>;
   }
 
   async getReadingTimeForPeriod(startMs: number, endMs: number): Promise<number> {

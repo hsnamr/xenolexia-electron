@@ -4,20 +4,19 @@
 
 import {create} from 'zustand';
 
-import {BookParserService, type ChapterContentService} from 'xenolexia-typescript';
+import {
+  BookParserService,
+  type ChapterContentService,
+  type IBookParser,
+  type Book,
+  type Chapter,
+  type ForeignWordData,
+  type ReaderSettings,
+  type TableOfContentsItem,
+} from 'xenolexia-typescript';
 import {getCore} from '../electronCore';
 
 import {useLibraryStore} from './libraryStore';
-
-import type {IBookParser} from '../services/BookParser/types';
-import type {
-  Book,
-  Chapter,
-  ForeignWordData,
-  ReaderSettings,
-  ProcessedChapter,
-  TableOfContentsItem,
-} from '../types/index';
 
 // ============================================================================
 // Types

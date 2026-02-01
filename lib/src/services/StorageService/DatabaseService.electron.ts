@@ -14,9 +14,11 @@ import type {
   BookFilter,
   VocabularySort,
   VocabularyFilter,
-} from './DataStore.types';
-export type {QueryResult, MigrationDefinition} from './DataStore.types';
-import type {ReadingStats} from '../../types';
+  QueryResult,
+  MigrationDefinition,
+} from 'xenolexia-typescript';
+import type {ReadingStats} from 'xenolexia-typescript';
+export type {QueryResult, MigrationDefinition};
 
 // ============================================================================
 // LowDB data shape
